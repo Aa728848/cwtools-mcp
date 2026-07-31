@@ -682,7 +682,7 @@ export const GENERATED_MCP_TOOLS = [
   {
     "tool": {
       "name": "get_completion_at",
-      "description": "Get auto-completion suggestions and structured context at a specific position. The CWTools language server returns candidates from both the current mod and the vanilla game cache, plus line/token/scope context for deciding what values can go here.",
+      "description": "Get auto-completion suggestions and bounded context at a specific position through the active VS Code language provider. In Paradox projects, CWTools may enrich the result with game-aware scope and schema context.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -840,7 +840,7 @@ export const GENERATED_MCP_TOOLS = [
   {
     "tool": {
       "name": "query_references",
-      "description": "Find all references to a specific identifier in the mod files. Use this to understand how an event, trigger, or effect is used across the codebase.",
+      "description": "Find references to an identifier through the active language provider, with a bounded workspace text-search fallback.",
       "inputSchema": {
         "type": "object",
         "properties": {
