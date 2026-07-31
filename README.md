@@ -17,8 +17,7 @@ This repository was split out of
 back as the `submodules/cwtools-mcp` submodule. The VS Code extension no longer
 bundles the MCP server — install it standalone:
 
-- **npm**: `npx -y cwtools-mcp --stdio` (publish pending; until then use the
-  single-file bundle below or run from a clone)
+- **npm**: `npx -y cwtools-mcp --stdio`
 - **Single file**: download `cwtools-mcp.cjs` from
   [Releases](https://github.com/Aa728848/cwtools-mcp/releases) and point your
   MCP client at `node cwtools-mcp.cjs --stdio`
@@ -79,7 +78,7 @@ CWTools 的 Paradox/Stellaris 语义工具（项目知识包、有界项目语�
 主仓库以 `submodules/cwtools-mcp` submodule 形式挂回。VS Code 扩展不再随包
 携带 MCP 服务——请独立安装：
 
-- **npm**：`npx -y cwtools-mcp --stdio`（发布前可先使用下方的单文件或从源码运行）
+- **npm**：`npx -y cwtools-mcp --stdio`
 - **单文件**：从 [Releases](https://github.com/Aa728848/cwtools-mcp/releases)
   下载 `cwtools-mcp.cjs`，MCP 客户端配置 `node cwtools-mcp.cjs --stdio`
 
