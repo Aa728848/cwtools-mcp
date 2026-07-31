@@ -1,0 +1,3 @@
+[submodule "submodules/cwtools-stellaris-config"]
+	path = submodules/cwtools-stellaris-config
+	url = https://github.com/Aa728848/cwtools-stellaris-config

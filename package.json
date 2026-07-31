@@ -1,0 +1,28 @@
+{
+  "name": "cwtools-mcp-root",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Read-only MCP server exposing CWTools Paradox/Stellaris semantic tools to external agents",
+  "workspaces": [
+    "packages/cwtools-shared",
+    "packages/cwtools-mcp"
+  ],
+  "scripts": {
+    "build": "npm run build -w cwtools-mcp",
+    "bundle": "npm run bundle -w cwtools-mcp",
+    "test:contracts": "npm run test:contracts -w cwtools-shared && npm run test:contracts -w cwtools-mcp"
+  },
+  "devDependencies": {
+    "@types/chai": "^5.2.2",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^20.9",
+    "chai": "^5.2.1",
+    "esbuild": "^0.28.1",
+    "mocha": "^11.7.1",
+    "ts-mocha": "^11.1.0",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
