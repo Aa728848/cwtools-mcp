@@ -97,16 +97,8 @@ async function readResourceData(host: HostServices, uri: string): Promise<unknow
           };
     }
     case 'cwtools://project/knowledge-manifest': {
-      let manifestPath = path.join(host.workspaceRoot, '.cwtools', 'project', 'knowledge', 'manifest.json');
-      let read = await host.filesystem.readTextFile(manifestPath);
-      if (!read.exists) {
-        const legacyPath = path.join(host.workspaceRoot, '.cwtools-ai', 'project', 'knowledge', 'manifest.json');
-        const legacyRead = await host.filesystem.readTextFile(legacyPath);
-        if (legacyRead.exists) {
-          manifestPath = legacyPath;
-          read = legacyRead;
-        }
-      }
+      const manifestPath = path.join(host.workspaceRoot, '.cwtools', 'project', 'knowledge', 'manifest.json');
+      const read = await host.filesystem.readTextFile(manifestPath);
       return read.exists
         ? JSON.parse(read.content)
         : {

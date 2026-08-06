@@ -29,6 +29,10 @@ function recordingHost(calls: Array<{ command: string; args: unknown[] }>): Host
       async list() { return []; },
       async glob() { return []; },
     },
+    indexing: {
+      async queryWorkspace() { return { status: 'ready', totalCount: 0, entries: [] }; },
+      async queryLocalisation() { return { status: 'ready', totalCount: 0, entries: [] }; },
+    },
     now: () => Date.now(),
     log: () => undefined,
   };
@@ -152,5 +156,44 @@ describe('deep semantic tools routing contract', () => {
     const hit = byFile.find(c => c.command === 'cwtools.ai.shader.compareVanilla');
     expect(hit).to.not.equal(undefined);
     expect(String((hit!.args[0] as Record<string, unknown>).uri)).to.include('gfx/FX/test.shader');
+  });
+
+  it('routes inline instantiation as one bounded server-side query record', async () => {
+    const calls: Array<{ command: string; args: unknown[] }> = [];
+    await defaultSharedToolDispatcher(recordingHost(calls), 'query_inline_instantiation', {
+      file: 'events/caller.txt', line: 12, limit: 999,
+    });
+    const hit = calls.find(c => c.command === 'cwtools.ai.exploreInlineGraph');
+    expect(hit?.args).to.deep.equal([{ file: 'events/caller.txt', line: 12, limit: 200 }]);
+  });
+
+  it('accepts definition-only PDX flow queries and preserves type plus bounds', async () => {
+    const calls: Array<{ command: string; args: unknown[] }> = [];
+    await defaultSharedToolDispatcher(recordingHost(calls), 'analyze_pdx_flow', {
+      definitionId: 'tech_kuat_core', entityType: 'technology', limit: 9999,
+    });
+    const hit = calls.find(c => c.command === 'cwtools.ai.analyzePdxFlow');
+    expect(hit?.args).to.deep.equal([{ definitionId: 'tech_kuat_core', entityType: 'technology', limit: 500 }]);
+  });
+
+  it('routes localisation audit mode to the authoritative read-only LSP validator', async () => {
+    const calls: Array<{ command: string; args: unknown[] }> = [];
+    await defaultSharedToolDispatcher(recordingHost(calls), 'query_localisation_index', {
+      key: 'KUAT_MISSING', prefix: true, contains: false, caseSensitive: true, auditMode: true, limit: 999,
+    });
+    const hit = calls.find(c => c.command === 'cwtools.ai.queryLocalisationAudit');
+    expect(hit?.args).to.deep.equal([{
+      key: 'KUAT_MISSING', prefix: true, contains: false, caseSensitive: true, limit: 500,
+    }]);
+  });
+
+  it('rejects empty inline and PDX flow queries without calling LSP', async () => {
+    const calls: Array<{ command: string; args: unknown[] }> = [];
+    const host = recordingHost(calls);
+    const inline = await defaultSharedToolDispatcher(host, 'query_inline_instantiation', {});
+    const flow = await defaultSharedToolDispatcher(host, 'analyze_pdx_flow', {});
+    expect((inline as any).ok).to.equal(false);
+    expect((flow as any).ok).to.equal(false);
+    expect(calls.some(call => call.command === 'cwtools.ai.exploreInlineGraph' || call.command === 'cwtools.ai.analyzePdxFlow')).to.equal(false);
   });
 });

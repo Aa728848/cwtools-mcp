@@ -108,17 +108,106 @@ export const defaultSharedToolDispatcher: SharedToolDispatcher = async (host, na
         'Start the CWTools LSP process and wait for the game model to load before exploring the semantic graph.',
       );
 
+    case 'analyze_pdx_flow': {
+      const file = typeof args.file === 'string' ? args.file.trim() : '';
+      const definitionId = typeof args.definitionId === 'string' ? args.definitionId.trim() : '';
+      if (!file && !definitionId) {
+        return {
+          ok: false,
+          status: 'error',
+          source: 'cwtools-shared',
+          error: {
+            code: 'invalid_arguments',
+            message: 'analyze_pdx_flow requires a file or a definitionId.',
+          },
+        };
+      }
+      return executeLspTool(
+        host,
+        'cwtools.ai.analyzePdxFlow',
+        [{
+          ...(file ? { file } : {}),
+          ...(definitionId ? { definitionId } : {}),
+          ...(typeof args.entityType === 'string' && args.entityType.trim() ? { entityType: args.entityType.trim() } : {}),
+          limit: Math.max(1, Math.min(Number(args.limit ?? 100) || 100, 500)),
+        }],
+        'Start the CWTools LSP process and wait for the game model to load before analyzing flow cost and gameplay relations.',
+      );
+    }
+
+    case 'compare_definition_with_vanilla': {
+      if (typeof args.entityType !== 'string' || typeof args.symbolId !== 'string' || !args.entityType.trim() || !args.symbolId.trim()) {
+        return {
+          ok: false,
+          status: 'error',
+          source: 'cwtools-shared',
+          error: {
+            code: 'invalid_arguments',
+            message: 'compare_definition_with_vanilla requires entityType and symbolId.',
+          },
+        };
+      }
+      return executeLspTool(
+        host,
+        'cwtools.ai.compareDefinitionWithVanilla',
+        [args.entityType.trim(), args.symbolId.trim()],
+        'Start the CWTools LSP process and wait for the game model to load before comparing the definition with vanilla.',
+      );
+    }
+
+    case 'query_inline_instantiation': {
+      const template = typeof args.template === 'string' ? args.template.trim() : '';
+      const file = typeof args.file === 'string' ? args.file.trim() : '';
+      if (!template && !file) {
+        return {
+          ok: false,
+          status: 'error',
+          source: 'cwtools-shared',
+          error: {
+            code: 'invalid_arguments',
+            message: 'query_inline_instantiation requires a template path or a caller file (optionally with line).',
+          },
+        };
+      }
+      return executeLspTool(
+        host,
+        'cwtools.ai.exploreInlineGraph',
+        [{
+          ...(template ? { template } : {}),
+          ...(file ? { file } : {}),
+          ...(Number.isInteger(args.line) ? { line: Number(args.line) } : {}),
+          limit: Math.max(1, Math.min(Number(args.limit ?? 50) || 50, 200)),
+        }],
+        'Start the CWTools LSP process and wait for the game model to load before resolving the inline template instantiation.',
+      );
+    }
+
     case 'query_localisation_index': {
       if (!host.indexing) {
         return toolUnavailable(name, 'Localisation index is not available in this host.', [
           'Wire an LSP index command or a thin Node index before using this tool for localisation evidence.',
         ]);
       }
+      const data = await host.indexing.queryLocalisation(args);
+      const semanticAudit = args.auditMode === true
+        ? await executeLspTool(
+            host,
+            'cwtools.ai.queryLocalisationAudit',
+            [{
+              ...(typeof args.key === 'string' ? { key: args.key } : {}),
+              prefix: args.prefix === true,
+              contains: args.contains === true,
+              caseSensitive: args.caseSensitive === true,
+              limit: Math.max(1, Math.min(Number(args.limit ?? 100) || 100, 500)),
+            }],
+            'Start the CWTools LSP process and wait for localisation validation before requesting auditMode.',
+          )
+        : undefined;
       return {
         ok: true,
         status: 'ready',
         source: 'cwtools-index',
-        data: await host.indexing.queryLocalisation(args),
+        data: semanticAudit ? { ...data, semanticAudit } : data,
       };
     }
 

@@ -17,21 +17,31 @@ export type AgentMode =
   | 'script';
 
 export interface QueryProjectProfileArgs {
-  section?: 'summary' | 'routing' | 'directories' | 'localisation' | 'identifiers' | 'validation' | 'promptCards' | 'all';
+  section?: 'summary' | 'routing' | 'directories' | 'localisation' | 'identifiers' | 'validation' | 'compatibility' | 'promptCards' | 'all';
   mode?: AgentMode | 'asset';
 }
 
 export interface ProjectProfile {
-  schemaVersion: 1;
+  schemaVersion: 2;
   generatedAt: string;
   workspaceRoot: string;
   workspaceKind: string;
   projectName: string;
+  /** True when a schemaVersion 1 profile was read and normalized. */
+  legacyProfile?: boolean;
   game: {
     id: string;
     displayName: string;
     confidence: 'high' | 'medium' | 'low';
     evidence: string[];
+  };
+  modInfo?: {
+    name?: string;
+    version?: string;
+    tags?: string[];
+    supportedVersion?: string;
+    remoteFileId?: string;
+    dependencies?: string[];
   };
   keyDirectories: Array<{
     key: string;
@@ -42,12 +52,16 @@ export interface ProjectProfile {
   localisation: {
     roots: string[];
     languages: string[];
+    defaultLanguage?: string;
     encoding: string;
+    encodingByLanguage?: Record<string, string>;
     sampleFiles: string[];
   };
   identifiers: Record<string, unknown>;
   routing: Record<string, unknown>;
   validation: Record<string, unknown>;
+  freshness?: Record<string, unknown>;
+  warnings?: string[];
   promptCards: Partial<Record<AgentMode | 'asset', string>>;
   efficiencyHints: string[];
   [key: string]: unknown;
@@ -71,7 +85,7 @@ export function getProjectProfilePath(workspaceRoot: string): string {
 export function isProjectProfile(value: unknown): value is ProjectProfile {
   return !!value
     && typeof value === 'object'
-    && (value as { schemaVersion?: unknown }).schemaVersion === 1
+    && ((value as { schemaVersion?: unknown }).schemaVersion === 1 || (value as { schemaVersion?: unknown }).schemaVersion === 2)
     && typeof (value as { projectName?: unknown }).projectName === 'string';
 }
 
@@ -81,10 +95,11 @@ export function buildProfileSummary(profile: ProjectProfile): string {
     ? profile.identifiers.namespaces.slice(0, 8).join(', ') || 'none'
     : 'none';
   const languages = profile.localisation.languages.join(', ') || 'unknown';
+  const supportedVersion = typeof profile.modInfo?.supportedVersion === 'string' ? ` (${profile.modInfo.supportedVersion})` : '';
   return [
     `Project: ${profile.projectName}`,
     `Kind: ${profile.workspaceKind}`,
-    `Game: ${profile.game.displayName}`,
+    `Game: ${profile.game.displayName}${supportedVersion}`,
     `Key dirs: ${dirs}`,
     `Namespaces: ${namespaces}`,
     `Localisation: ${languages} (${profile.localisation.encoding})`,
@@ -106,6 +121,13 @@ export function selectProfileSection(profile: ProjectProfile, section: NonNullab
     case 'localisation': return profile.localisation;
     case 'identifiers': return profile.identifiers;
     case 'validation': return profile.validation;
+    case 'compatibility': return {
+      supportedVersion: profile.modInfo?.supportedVersion,
+      remoteFileId: profile.modInfo?.remoteFileId,
+      dependencies: profile.modInfo?.dependencies ?? [],
+      vanillaCache: profile.validation?.vanillaCache,
+      game: profile.game,
+    };
     case 'promptCards': return profile.promptCards;
     case 'all': return profile;
     case 'summary':
@@ -114,7 +136,10 @@ export function selectProfileSection(profile: ProjectProfile, section: NonNullab
         workspaceKind: profile.workspaceKind,
         projectName: profile.projectName,
         game: profile.game,
+        supportedVersion: profile.modInfo?.supportedVersion,
         generatedAt: profile.generatedAt,
+        freshness: profile.freshness,
+        warnings: profile.warnings ?? [],
         efficiencyHints: profile.efficiencyHints,
       };
   }
@@ -152,7 +177,7 @@ export async function queryProjectProfileWithHost(
         source: 'cwtools-shared',
         error: {
           code: 'invalid_profile',
-          message: 'Project profile exists but is not schemaVersion 1.',
+          message: 'Project profile exists but is not a valid schemaVersion 1 or 2 profile.',
         },
       };
     }

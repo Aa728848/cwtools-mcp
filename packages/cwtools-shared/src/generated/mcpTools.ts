@@ -368,6 +368,7 @@ export const GENERATED_MCP_TOOLS = [
               "localisation",
               "identifiers",
               "validation",
+              "compatibility",
               "promptCards",
               "all"
             ],
@@ -527,7 +528,11 @@ export const GENERATED_MCP_TOOLS = [
           },
           "includeReferences": {
             "type": "boolean",
-            "description": "If true, include lightweight cross-file reference contexts captured by the index. Default false."
+            "description": "Include lightweight cross-file reference contexts. Default false."
+          },
+          "includeAssetChain": {
+            "type": "boolean",
+            "description": "Check bounded GUI/GFX/model targets, path case, and DDS frame layout."
           },
           "limit": {
             "type": "number",
@@ -549,7 +554,7 @@ export const GENERATED_MCP_TOOLS = [
   {
     "tool": {
       "name": "explore_pdx_project",
-      "description": "Primary semantic exploration entry point for large Paradox projects. Queries the live CWTools type/reference graph and returns bounded entry points, typed nodes, dependency edges, file facts, provenance, truncation, and freshness without scanning or reading whole files. Use this FIRST for questions such as how an entity is connected, what calls or references an ID, what a file depends on, or what may be affected by a change. Follow with exact query_rules/query_scope/query_types/get_pdx_block checks before writing.",
+      "description": "Primary semantic exploration for large Paradox projects: live CWTools type/reference graph with bounded nodes, edges, file facts, provenance and freshness. Use FIRST for connectivity and impact; follow with exact query_rules/query_scope/query_types/get_pdx_block before writing.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -590,6 +595,17 @@ export const GENERATED_MCP_TOOLS = [
           "includeMetadata": {
             "type": "boolean",
             "description": "Include documentation, variables, event targets, and block metadata. Default true."
+          },
+          "relationshipKinds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "inline_invocation",
+                "inline_expansion"
+              ]
+            },
+            "description": "Extra graph kinds: inline_invocation or inline_expansion."
           }
         },
         "required": []
@@ -597,6 +613,109 @@ export const GENERATED_MCP_TOOLS = [
     },
     "registry": {
       "name": "explore_pdx_project",
+      "isWrite": false,
+      "isReadOnly": true,
+      "effect": "workspace_read",
+      "riskLevel": 0,
+      "concurrencyClass": "lsp-limited"
+    }
+  },
+  {
+    "tool": {
+      "name": "query_inline_instantiation",
+      "description": "Preview one inline_script template instantiation: parameters, arguments, expanded symbol, and problems (missing/unused/unresolved). Precise template path or file+line only; no whole-project expansion. Use before editing a template or caller.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "template": {
+            "type": "string",
+            "description": "Template path, e.g. common/inline_scripts/example.txt."
+          },
+          "file": {
+            "type": "string",
+            "description": "Caller file; narrows to one invocation."
+          },
+          "line": {
+            "type": "number",
+            "description": "Caller line; combined with file selects one invocation."
+          },
+          "limit": {
+            "type": "number",
+            "description": "Maximum invocations to return. Default 50, max 200."
+          }
+        },
+        "required": []
+      }
+    },
+    "registry": {
+      "name": "query_inline_instantiation",
+      "isWrite": false,
+      "isReadOnly": true,
+      "effect": "workspace_read",
+      "riskLevel": 0,
+      "concurrencyClass": "lsp-limited"
+    }
+  },
+  {
+    "tool": {
+      "name": "analyze_pdx_flow",
+      "description": "Static cost model and gameplay relations for a file or definition: traversals (every_*/while), pulse handlers, nested fan-out, and typed edges (tech prerequisites, special project events, megastructure upgrades). Relative weights only.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "Optional file path to analyze; when omitted a definitionId must be given."
+          },
+          "definitionId": {
+            "type": "string",
+            "description": "Optional exact definition ID; combined with file to scope the analysis."
+          },
+          "entityType": {
+            "type": "string",
+            "description": "Optional exact CWTools entity type; use with definitionId to disambiguate duplicate IDs."
+          },
+          "limit": {
+            "type": "number",
+            "description": "Maximum costs and relations returned per collection. Default 100, max 500."
+          }
+        },
+        "required": []
+      }
+    },
+    "registry": {
+      "name": "analyze_pdx_flow",
+      "isWrite": false,
+      "isReadOnly": true,
+      "effect": "workspace_read",
+      "riskLevel": 0,
+      "concurrencyClass": "lsp-limited"
+    }
+  },
+  {
+    "tool": {
+      "name": "compare_definition_with_vanilla",
+      "description": "Field-level diff of one definition against its vanilla counterpart: added, removed and modified fields with stable source locations. Accepts exact entityType + symbolId only; returns the resolved winner and never fabricates a conclusion when the winner is ambiguous. Use before editing any file that overrides vanilla.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "entityType": {
+            "type": "string",
+            "description": "Exact CWTools type name (e.g. event, technology, ship_size)."
+          },
+          "symbolId": {
+            "type": "string",
+            "description": "Exact definition ID shared by workspace and vanilla candidates."
+          }
+        },
+        "required": [
+          "entityType",
+          "symbolId"
+        ]
+      }
+    },
+    "registry": {
+      "name": "compare_definition_with_vanilla",
       "isWrite": false,
       "isReadOnly": true,
       "effect": "workspace_read",
@@ -630,6 +749,26 @@ export const GENERATED_MCP_TOOLS = [
           "caseSensitive": {
             "type": "boolean",
             "description": "Only applies to prefix/contains searches. Default false."
+          },
+          "includeDuplicates": {
+            "type": "boolean",
+            "description": "Include per-key duplicate groups with all occurrences (file/line), so duplicate keys are auditable instead of trusting the last write. Default false."
+          },
+          "compareLanguages": {
+            "type": "boolean",
+            "description": "Include true missing/extra key-set differences per language, independent of result truncation. Default false."
+          },
+          "referenceLanguage": {
+            "type": "string",
+            "description": "Reference language for missing/extra differences. Defaults to l_english when indexed."
+          },
+          "referenceStatus": {
+            "type": "boolean",
+            "description": "Include bounded LSP reference status and origin; dynamic keys remain uncertain."
+          },
+          "auditMode": {
+            "type": "boolean",
+            "description": "Include authoritative CWTools localisation diagnostics: completely missing script-referenced keys, inline/dynamic-key provenance, and localisation command/scope issues."
           },
           "limit": {
             "type": "number",

@@ -30,6 +30,11 @@ export interface LocalisationIndexQuery {
   prefix?: boolean;
   contains?: boolean;
   caseSensitive?: boolean;
+  includeDuplicates?: boolean;
+  compareLanguages?: boolean;
+  referenceLanguage?: string;
+  referenceStatus?: boolean;
+  auditMode?: boolean;
   limit?: number;
 }
 

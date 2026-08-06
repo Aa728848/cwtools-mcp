@@ -16,6 +16,7 @@ export interface QueryProjectKnowledgeArgs {
 }
 
 const KNOWLEDGE_DIR = path.join('.cwtools', 'project', 'knowledge');
+const CURRENT_KNOWLEDGE_SCHEMA_VERSION = 7;
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value)
@@ -25,20 +26,6 @@ function asRecord(value: unknown): Record<string, unknown> {
 
 function stringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
-}
-
-function tokensFor(args: QueryProjectKnowledgeArgs): string[] {
-  return [args.intent ?? '', ...(args.identifiers ?? []), ...(args.entityTypes ?? [])]
-    .join(' ')
-    .toLowerCase()
-    .match(/[@a-z0-9_.:-]{2,}/g)
-    ?.slice(0, 30) ?? [];
-}
-
-function score(value: Record<string, unknown>, tokens: string[]): number {
-  if (tokens.length === 0) return 1;
-  const text = JSON.stringify(value).toLowerCase();
-  return tokens.reduce((total, token) => total + (text.includes(token) ? 3 : 0), 0);
 }
 
 async function readJson(host: HostServices, filePath: string): Promise<Record<string, unknown> | undefined> {
@@ -55,19 +42,9 @@ export async function queryProjectKnowledgeWithHost(
   host: HostServices,
   args: QueryProjectKnowledgeArgs = {},
 ): Promise<SharedToolResult> {
-  let root = path.join(host.workspaceRoot, KNOWLEDGE_DIR);
-  let manifestPath = path.join(root, 'manifest.json');
-  let manifest = await readJson(host, manifestPath);
-  if (!manifest) {
-    const legacyRoot = path.join(host.workspaceRoot, '.cwtools-ai', 'project', 'knowledge');
-    const legacyManifestPath = path.join(legacyRoot, 'manifest.json');
-    const legacyManifest = await readJson(host, legacyManifestPath);
-    if (legacyManifest) {
-      root = legacyRoot;
-      manifestPath = legacyManifestPath;
-      manifest = legacyManifest;
-    }
-  }
+  const root = path.join(host.workspaceRoot, KNOWLEDGE_DIR);
+  const manifestPath = path.join(root, 'manifest.json');
+  const manifest = await readJson(host, manifestPath);
 
   if (!manifest) {
     return {
@@ -86,8 +63,31 @@ export async function queryProjectKnowledgeWithHost(
     };
   }
 
-  if (Number(manifest.schemaVersion) >= 2) {
-    const database = asRecord(manifest.database);
+  const database = asRecord(manifest.database);
+  const foundSchemaVersion = Number(database.schemaVersion ?? manifest.schemaVersion) || 0;
+  if (Number(manifest.schemaVersion) !== CURRENT_KNOWLEDGE_SCHEMA_VERSION
+    || foundSchemaVersion !== CURRENT_KNOWLEDGE_SCHEMA_VERSION) {
+    return {
+      ok: false,
+      status: 'stale',
+      source: 'cwtools-project-knowledge-sqlite',
+      error: {
+        code: 'knowledge_schema_obsolete',
+        message: `Project knowledge schema V${foundSchemaVersion} is obsolete. Rebuild it with the current V${CURRENT_KNOWLEDGE_SCHEMA_VERSION} extension.`,
+      },
+      data: {
+        status: 'stale',
+        manifestPath,
+        rebuildRequired: true,
+        foundSchemaVersion,
+        currentSchemaVersion: CURRENT_KNOWLEDGE_SCHEMA_VERSION,
+        staleReasons: ['schema_version_obsolete'],
+        _hint: 'Run /init or reopen the project and wait for the automatic full rebuild. Old database schemas are not queried.',
+      },
+    };
+  }
+
+  {
     const relativeDatabasePath = typeof database.path === 'string' && database.path.trim()
       ? database.path
       : 'knowledge.sqlite';
@@ -136,65 +136,4 @@ export async function queryProjectKnowledgeWithHost(
     };
   }
 
-  const manifestDomains = stringArray(manifest.domains);
-  const domains = (args.domains?.length ? args.domains : manifestDomains)
-    .map(value => value.trim().toLowerCase())
-    .filter(Boolean)
-    .slice(0, 12);
-  const tokens = tokensFor(args);
-  const limit = Math.max(1, Math.min(Number(args.limit ?? 80) || 80, 300));
-  const evidence: Array<Record<string, unknown>> = [];
-  const capabilities: Array<Record<string, unknown>> = [];
-
-  for (const domain of domains) {
-    const capability = await readJson(host, path.join(root, 'capabilities', `${domain}.json`));
-    if (!capability) continue;
-    capabilities.push({ domain, summary: capability.summary, evidencePolicy: capability.evidencePolicy });
-    const candidates: Array<Record<string, unknown>> = [];
-    if (Array.isArray(capability.definitions)) candidates.push(...capability.definitions.map(asRecord));
-    if (args.includeProjectPatterns !== false && Array.isArray(capability.projectExamples)) candidates.push(...capability.projectExamples.map(asRecord));
-    if (args.includeVanillaArchetypes !== false && Array.isArray(capability.vanillaArchetypes)) candidates.push(...capability.vanillaArchetypes.map(asRecord));
-    if (args.includeTopology !== false) {
-      const topology = asRecord(capability.topology);
-      if (Array.isArray(topology.edges)) candidates.push(...topology.edges.map(asRecord));
-    }
-    evidence.push(...candidates
-      .map(item => ({ ...item, domain, score: score(item, tokens) }))
-      .filter(item => tokens.length === 0 || Number(item.score) > 0)
-      .sort((a, b) => Number(b.score) - Number(a.score))
-      .slice(0, Math.max(5, Math.ceil(limit / Math.max(1, domains.length)))));
-  }
-
-  const unresolvedFile = args.includeUnresolved === false
-    ? undefined
-    : await readJson(host, path.join(root, 'unresolved.json'));
-  const unresolved = Array.isArray(unresolvedFile?.entries)
-    ? unresolvedFile.entries.map(asRecord).slice(0, 100)
-    : [];
-  const manifestStatus = String(manifest.status ?? 'stale');
-  const staleReasons = stringArray(manifest.staleReasons);
-  const ready = manifestStatus === 'ready' && staleReasons.length === 0;
-
-  return {
-    ok: true,
-    status: ready ? 'ready' : 'stale',
-    source: 'cwtools-project-knowledge',
-    data: {
-      status: ready ? 'ready' : 'stale',
-      manifestPath,
-      generatedAt: manifest.generatedAt,
-      game: manifest.game,
-      graphVersion: manifest.graphVersion,
-      staleReasons,
-      domains,
-      capabilities,
-      evidence: evidence.slice(0, limit),
-      unresolved,
-      requiredNextChecks: [
-        'Use query_cwt_schema/query_rules/query_scope for legality before writing.',
-        'Use query_override_modes for target directories with vanilla definitions.',
-        'Read exact source blocks before approving a complex blueprint.',
-      ],
-    },
-  };
 }

@@ -11,10 +11,10 @@ import {
 describe('project knowledge contract', () => {
   const tempBase = path.resolve(__dirname, '..', '..', '..', '..', '.tmp-project-knowledge');
 
-  it('returns ranked project and vanilla evidence from the /init knowledge pack', async () => {
+  it('requires obsolete JSON knowledge packs in the current directory to be rebuilt', async () => {
     const workspaceRoot = fs.mkdtempSync(`${tempBase}-`);
     try {
-      const knowledgeRoot = path.join(workspaceRoot, '.cwtools-ai', 'project', 'knowledge');
+      const knowledgeRoot = path.join(workspaceRoot, '.cwtools', 'project', 'knowledge');
       fs.mkdirSync(path.join(knowledgeRoot, 'capabilities'), { recursive: true });
       fs.writeFileSync(path.join(knowledgeRoot, 'manifest.json'), JSON.stringify({
         schemaVersion: 1,
@@ -42,12 +42,11 @@ describe('project knowledge contract', () => {
         domains: ['events'],
       });
 
-      expect(result.ok).to.equal(true);
-      expect(result.status).to.equal('ready');
+      expect(result.ok).to.equal(false);
+      expect(result.status).to.equal('stale');
       const data = result.data as Record<string, any>;
-      expect(data.game).to.equal('stellaris');
-      expect(data.evidence.some((item: Record<string, unknown>) => item.id === 'my_mod.1')).to.equal(true);
-      expect(data.evidence.some((item: Record<string, unknown>) => item.id === 'vanilla.1')).to.equal(true);
+      expect(data.rebuildRequired).to.equal(true);
+      expect(data.currentSchemaVersion).to.equal(7);
     } finally {
       fs.rmSync(workspaceRoot, { recursive: true, force: true });
     }
@@ -56,6 +55,9 @@ describe('project knowledge contract', () => {
   it('reports a missing pack without falling back to guessed knowledge', async () => {
     const workspaceRoot = fs.mkdtempSync(`${tempBase}-`);
     try {
+      const removedLegacyRoot = path.join(workspaceRoot, '.cwtools-ai', 'project', 'knowledge');
+      fs.mkdirSync(removedLegacyRoot, { recursive: true });
+      fs.writeFileSync(path.join(removedLegacyRoot, 'manifest.json'), JSON.stringify({ schemaVersion: 7 }), 'utf8');
       const result = await queryProjectKnowledgeWithHost(createFsHost(workspaceRoot), {});
       expect(result.ok).to.equal(false);
       expect(result.status).to.equal('unavailable');
@@ -65,20 +67,20 @@ describe('project knowledge contract', () => {
     }
   });
 
-  it('routes V3 knowledge queries through the read-only SQLite LSP command', async () => {
+  it('routes current V7 knowledge queries through the read-only SQLite LSP command', async () => {
     const workspaceRoot = fs.mkdtempSync(`${tempBase}-`);
     try {
-      const knowledgeRoot = path.join(workspaceRoot, '.cwtools-ai', 'project', 'knowledge');
+      const knowledgeRoot = path.join(workspaceRoot, '.cwtools', 'project', 'knowledge');
       fs.mkdirSync(knowledgeRoot, { recursive: true });
       fs.writeFileSync(path.join(knowledgeRoot, 'manifest.json'), JSON.stringify({
-        schemaVersion: 3,
+        schemaVersion: 7,
         status: 'ready',
         generatedAt: '2026-01-01T00:00:00.000Z',
         game: 'stellaris',
         graphVersion: 9,
         domains: ['events'],
         staleReasons: [],
-        database: { path: 'knowledge.sqlite', format: 'sqlite', schemaVersion: 3 },
+        database: { path: 'knowledge.sqlite', format: 'sqlite', schemaVersion: 7 },
       }), 'utf8');
       fs.writeFileSync(path.join(knowledgeRoot, 'knowledge.sqlite'), 'test');
       const calls: Array<{ command: string; args?: unknown[] }> = [];
@@ -117,7 +119,7 @@ describe('project knowledge contract', () => {
     }
   });
 
-  it('preserves partial status from a bounded V2 knowledge graph', async () => {
+  it('rejects obsolete SQLite schemas without calling the LSP', async () => {
     const workspaceRoot = fs.mkdtempSync(`${tempBase}-`);
     try {
       const knowledgeRoot = path.join(workspaceRoot, '.cwtools', 'project', 'knowledge');
@@ -130,17 +132,20 @@ describe('project knowledge contract', () => {
       }), 'utf8');
       fs.writeFileSync(path.join(knowledgeRoot, 'knowledge.sqlite'), 'test');
       const host = createFsHost(workspaceRoot);
+      let called = false;
       host.lsp = {
         async executeCommand() {
+          called = true;
           return { ok: true, status: 'partial', evidence: [], unresolved: [] };
         },
       };
 
       const result = await queryProjectKnowledgeWithHost(host);
 
-      expect(result.ok).to.equal(true);
-      expect(result.status).to.equal('partial');
-      expect((result.data as Record<string, unknown>).status).to.equal('partial');
+      expect(result.ok).to.equal(false);
+      expect(result.status).to.equal('stale');
+      expect((result.data as Record<string, unknown>).rebuildRequired).to.equal(true);
+      expect(called).to.equal(false);
     } finally {
       fs.rmSync(workspaceRoot, { recursive: true, force: true });
     }
