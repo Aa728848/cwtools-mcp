@@ -659,7 +659,7 @@ export const GENERATED_MCP_TOOLS = [
   {
     "tool": {
       "name": "analyze_pdx_flow",
-      "description": "Static cost model and gameplay relations for a file or definition: traversals (every_*/while), pulse handlers, nested fan-out, and typed edges (tech prerequisites, special project events, megastructure upgrades). Relative weights only.",
+      "description": "Static flow model for a file or definition: dynamic event subtypes, inline-instantiated state/calls, cross-event and scripted-effect state flow, pulse/on_action/scripted-effect cost propagation, traversals, loops, and typed gameplay edges. Costs are relative static scores, not runtime predictions.",
       "inputSchema": {
         "type": "object",
         "properties": {
