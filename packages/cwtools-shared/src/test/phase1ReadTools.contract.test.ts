@@ -122,6 +122,59 @@ describe('phase 1 read tool contracts', () => {
     expect(rule!.semanticHints?.some(hint => hint.text.includes('ship'))).to.equal(true);
   });
 
+  it('treats links.cwt as authoritative scope-link facts', async () => {
+    const result = await queryRulesWithHost(createFsHost(repoRoot), {
+      category: 'scope_change',
+      name: 'ship.colony',
+      scope: 'ship',
+    });
+
+    expect(result.ok).to.equal(true);
+    const rule = result.data!.rules[0];
+    expect(rule?.name).to.equal('colony');
+    expect(rule!.hardFacts?.category).to.equal('scope_change');
+    expect(rule!.hardFacts?.supportedScopes).to.include('ship');
+    expect(rule!.hardFacts?.pushScope).to.equal('colony');
+    expect(rule!.sourceFile?.replace(/\\/g, '/')).to.include('/links.cwt');
+    expect(rule!.semanticHints?.some(hint => hint.source === 'links.cwt')).to.equal(true);
+  });
+
+  it('scans nested CWT files for rule aliases instead of relying on fixed filenames', async () => {
+    const rulesRoot = fs.mkdtempSync(path.join(repoRoot, '.tmp-nested-rules-'));
+    try {
+      const configDir = path.join(rulesRoot, 'config');
+      const nestedRuleFile = path.join(configDir, 'common', 'custom_agent_rules.cwt');
+      fs.mkdirSync(path.dirname(nestedRuleFile), { recursive: true });
+      fs.writeFileSync(nestedRuleFile, [
+        '## supported_scopes = country',
+        'alias[effect:custom_nested_effect] = yes',
+        '',
+      ].join('\n'), 'utf8');
+      const host = createFsHost(repoRoot, {
+        rules: {
+          gameId: 'stellaris',
+          configDirs: [rulesRoot],
+          async readTextFile(filePath) {
+            if (!fs.existsSync(filePath)) return { content: '', hasBom: false, exists: false };
+            const content = fs.readFileSync(filePath, 'utf8');
+            return { content, hasBom: content.charCodeAt(0) === 0xfeff, exists: true };
+          },
+        },
+      });
+
+      const result = await queryRulesWithHost(host, {
+        category: 'effect',
+        name: 'custom_nested_effect',
+      });
+
+      expect(result.ok).to.equal(true);
+      expect(result.data!.rules[0]!.name).to.equal('custom_nested_effect');
+      expect(result.data!.rules[0]!.sourceFile?.replace(/\\/g, '/')).to.include('/common/custom_agent_rules.cwt');
+    } finally {
+      fs.rmSync(rulesRoot, { recursive: true, force: true });
+    }
+  });
+
   it('keeps event-effect legality separate from semantic hints', async () => {
     const result = await queryRulesWithHost(createFsHost(repoRoot), {
       category: 'effect',

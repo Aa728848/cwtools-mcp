@@ -165,7 +165,7 @@ export interface CwtRuleValueReference {
 
 export interface RuleSemanticHint {
   text: string;
-  source: 'trigger_docs.log' | 'scopes.cwt' | 'cwt-comment' | 'modifiers.log';
+  source: 'trigger_docs.log' | 'scopes.cwt' | 'links.cwt' | 'cwt-comment' | 'modifiers.log';
   file?: string;
   line?: number;
   confidence: 'hint';
@@ -207,8 +207,11 @@ export async function queryRulesWithHost(host: HostServices, args: QueryRulesArg
         : cache.scopeChanges;
 
   if (args.name) {
-    const needle = args.name.toLowerCase();
-    const filtered = rules.filter(rule => rule.name.toLowerCase().includes(needle));
+    const needle = normalizeRuleNameQuery(args.name, args.category);
+    const filtered = rules
+      .filter(rule => rule.name.toLowerCase().includes(needle))
+      .sort((a, b) => scoreRuleNameMatch(a.name, needle) - scoreRuleNameMatch(b.name, needle)
+        || a.name.localeCompare(b.name));
     if (filtered.length === 0 && rules.length > 0) {
       rules = rules
         .map(rule => ({ rule, score: levenshtein(needle, rule.name.toLowerCase()) }))
@@ -507,12 +510,39 @@ function normalizeCwtSchemaTarget(host: HostServices, value: string): string {
 
 async function findCwtSchemaFiles(host: HostServices, root: string, maxFiles: number): Promise<string[]> {
   if (host.rules?.listCwtFiles) {
-    return (await host.rules.listCwtFiles(root, { limit: maxFiles })).slice(0, maxFiles);
+    return (await host.rules.listCwtFiles(root, { limit: maxFiles }))
+      .slice(0, maxFiles)
+      .sort((a, b) => a.localeCompare(b));
+  }
+  if (fs.existsSync(root)) {
+    const results: string[] = [];
+    const ignoredDirs = new Set(['.git', 'node_modules', 'logs', 'config']);
+    const walkDisk = (dir: string, depth: number): void => {
+      if (results.length >= maxFiles || depth > 8) return;
+      let entries: fs.Dirent[];
+      try {
+        entries = fs.readdirSync(dir, { withFileTypes: true });
+      } catch {
+        return;
+      }
+      entries.sort((a, b) => a.name.localeCompare(b.name));
+      for (const entry of entries) {
+        if (results.length >= maxFiles) break;
+        const fullPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          if (!ignoredDirs.has(entry.name)) walkDisk(fullPath, depth + 1);
+        } else if (entry.isFile() && entry.name.toLowerCase().endsWith('.cwt')) {
+          results.push(fullPath);
+        }
+      }
+    };
+    walkDisk(root, 0);
+    return results.sort((a, b) => a.localeCompare(b));
   }
   const rootRelative = workspaceRelativePath(host.workspaceRoot, root);
   if (!rootRelative) return [];
   const results: string[] = [];
-  const ignoredDirs = new Set(['.git', 'node_modules', 'logs']);
+  const ignoredDirs = new Set(['.git', 'node_modules', 'logs', 'config']);
   const walk = async (relativeDir: string, depth: number): Promise<void> => {
     if (results.length >= maxFiles || depth > 8) return;
     let entries: Awaited<ReturnType<HostServices['filesystem']['list']>>;
@@ -521,6 +551,7 @@ async function findCwtSchemaFiles(host: HostServices, root: string, maxFiles: nu
     } catch {
       return;
     }
+    entries.sort((a, b) => a.name.localeCompare(b.name));
     for (const entry of entries) {
       if (results.length >= maxFiles) break;
       const childRelative = relativeDir === '.' ? entry.name : `${relativeDir}/${entry.name}`;
@@ -533,7 +564,16 @@ async function findCwtSchemaFiles(host: HostServices, root: string, maxFiles: nu
     }
   };
   await walk(rootRelative, 0);
-  return results;
+  return results.sort((a, b) => a.localeCompare(b));
+}
+
+async function collectCwtRuleSourceFiles(host: HostServices, root: string, includeMissingLogs: boolean): Promise<string[]> {
+  const files = await findCwtSchemaFiles(host, root, CWT_RULE_FILE_SCAN_LIMIT);
+  for (const relativeLog of CWT_RULE_LOG_CANDIDATES) {
+    const fullPath = path.join(root, relativeLog);
+    if (includeMissingLogs || fs.existsSync(fullPath)) files.push(fullPath);
+  }
+  return Array.from(new Set(files)).sort((a, b) => a.localeCompare(b));
 }
 
 function workspaceRelativePath(workspaceRoot: string, fullPath: string): string | undefined {
@@ -899,28 +939,19 @@ function scoreCwtSchemaEntity(summary: CwtSchemaEntitySummary, normalizedTarget:
 //
 // loadCwtRules used to re-read and re-parse every rule file on each query.
 // The memo keeps one parsed CwtRuleCache per host identity, invalidated by an
-// mtime/size signature over a bounded candidate file set (12 files per config
-// root). `generation` is a per-host monotonic reload counter; `contentHash` is
-// sha256 (16 hex chars) over the length-prefixed concatenation of every
-// candidate rule file's content — the same algorithm the extension-side
+// mtime/size signature over every .cwt file under the active config roots plus
+// the docs/modifier logs. `generation` is a per-host monotonic reload counter;
+// `contentHash` is sha256 (16 hex chars) over the length-prefixed concatenation
+// of the same files' content — the same algorithm the extension-side
 // LspToolHandler uses, so both ends describe rule revisions with the same
 // hash semantics. The cache is process-local and bounded
 // (CWT_RULES_MEMO_MAX_ENTRIES).
 
-const CWT_RULE_FILE_CANDIDATES: readonly string[] = [
-  'scopes.cwt',
+const CWT_RULE_LOG_CANDIDATES: readonly string[] = [
   path.join('logs', 'trigger_docs.log'),
   path.join('logs', 'modifiers.log'),
-  'triggers.cwt',
-  'trigger.cwt',
-  path.join('generated', 'triggers.generated.cwt'),
-  'effects.cwt',
-  'effect.cwt',
-  path.join('generated', 'effects.generated.cwt'),
-  'modifier.cwt',
-  'scope_changes.cwt',
-  path.join('generated', 'scope_changes.generated.cwt'),
 ];
+const CWT_RULE_FILE_SCAN_LIMIT = 5_000;
 
 const CWT_RULES_MEMO_MAX_ENTRIES = 8;
 /**
@@ -946,12 +977,11 @@ export interface CwtRulesCacheMeta {
 
 const cwtRulesMemo = new Map<string, CwtRulesMemoEntry>();
 
-function computeRulesSignature(configPaths: string[]): { signature: string; sawDiskFiles: boolean } {
+async function computeRulesSignature(host: HostServices, configPaths: string[]): Promise<{ signature: string; sawDiskFiles: boolean }> {
   const parts: string[] = [];
   let sawDiskFiles = false;
   for (const configPath of configPaths) {
-    for (const file of CWT_RULE_FILE_CANDIDATES) {
-      const fullPath = path.join(configPath, file);
+    for (const fullPath of await collectCwtRuleSourceFiles(host, configPath, true)) {
       try {
         const stat = fs.statSync(fullPath);
         parts.push(`${fullPath}:${stat.mtimeMs}:${stat.size}`);
@@ -974,8 +1004,8 @@ function computeRulesSignature(configPaths: string[]): { signature: string; sawD
 async function computeRulesContentHash(host: HostServices, configPaths: string[]): Promise<string> {
   const hash = crypto.createHash('sha256');
   for (const configPath of configPaths) {
-    for (const file of CWT_RULE_FILE_CANDIDATES) {
-      const read = await readRulesTextFile(host, path.join(configPath, file)).catch(() => ({ exists: false, content: '', hasBom: false }));
+    for (const file of await collectCwtRuleSourceFiles(host, configPath, true)) {
+      const read = await readRulesTextFile(host, file).catch(() => ({ exists: false, content: '', hasBom: false }));
       if (!read.exists) continue;
       hash.update(`${read.content.length}:`);
       hash.update(read.content);
@@ -991,7 +1021,7 @@ function cwtRulesHostKey(host: HostServices): string {
 async function loadCwtRulesMemoized(host: HostServices): Promise<{ cache: CwtRuleCache; meta: CwtRulesCacheMeta }> {
   const configPaths = await resolveRulesConfigPaths(host);
   const hostKey = cwtRulesHostKey(host);
-  const { signature, sawDiskFiles } = computeRulesSignature(configPaths);
+  const { signature, sawDiskFiles } = await computeRulesSignature(host, configPaths);
   const memo = cwtRulesMemo.get(hostKey);
   if (memo && memo.signature === signature && (memo.sawDiskFiles || host.now() - memo.computedAt < CWT_RULES_MEMO_REFRESH_MS)) {
     return { cache: memo.cache, meta: { generation: memo.generation, contentHash: memo.contentHash } };
@@ -1029,10 +1059,21 @@ async function loadCwtRulesFromPaths(host: HostServices, configPaths: string[]):
       ? parseScopesFile(scopesRead.content, path.join(configPath, 'scopes.cwt'))
       : new Map<string, ScopeInfo>();
 
-    const triggers = await readRuleFiles(host, configPath, ['triggers.cwt', 'trigger.cwt', path.join('generated', 'triggers.generated.cwt')], 'trigger', docs, scopes);
-    const effects = await readRuleFiles(host, configPath, ['effects.cwt', 'effect.cwt', path.join('generated', 'effects.generated.cwt')], 'effect', docs, scopes);
-    const scopeChanges = await readRuleFiles(host, configPath, ['scope_changes.cwt', path.join('generated', 'scope_changes.generated.cwt')], 'scope_change', docs, scopes);
-    const modifierAliases = await readRuleFiles(host, configPath, ['modifier.cwt'], 'modifier', docs, scopes);
+    const triggers: RuleInfo[] = [];
+    const effects: RuleInfo[] = [];
+    const scopeChanges: RuleInfo[] = [];
+    const modifierAliases: RuleInfo[] = [];
+    for (const file of await findCwtSchemaFiles(host, configPath, CWT_RULE_FILE_SCAN_LIMIT)) {
+      const relativeFile = path.relative(configPath, file).replace(/\\/g, '/');
+      const parsed = await readRulesFile(host, file, scopeChangeFileCategoryOverride(relativeFile), docs, scopes);
+      for (const rule of parsed) {
+        if (rule.category === 'trigger') triggers.push(rule);
+        else if (rule.category === 'effect') effects.push(rule);
+        else if (rule.category === 'modifier') modifierAliases.push(rule);
+        else scopeChanges.push(rule);
+      }
+      scopeChanges.push(...await readLinksFile(host, file, scopes));
+    }
     const modifierLog = await readModifiersLog(host, path.join(configPath, 'logs', 'modifiers.log'));
     const modifiers = [...modifierAliases];
     const modifierNames = new Set(modifiers.map(rule => rule.name.toLowerCase()));
@@ -1120,7 +1161,7 @@ async function readRuleFiles(
   host: HostServices,
   configPath: string,
   relativeFiles: string[],
-  category: QueryRulesArgs['category'],
+  category: QueryRulesArgs['category'] | undefined,
   docs: Map<string, RuleDocInfo>,
   scopes: Map<string, ScopeInfo>,
 ): Promise<RuleInfo[]> {
@@ -1134,13 +1175,20 @@ async function readRuleFiles(
 async function readRulesFile(
   host: HostServices,
   filePath: string,
-  category: QueryRulesArgs['category'],
+  category: QueryRulesArgs['category'] | undefined,
   docs: Map<string, RuleDocInfo>,
   scopes: Map<string, ScopeInfo>,
 ): Promise<RuleInfo[]> {
   const read = await readRulesTextFile(host, filePath).catch(() => ({ exists: false, content: '', hasBom: false }));
   if (!read.exists) return [];
   return parseCwtFile(read.content, filePath, category, docs, scopes);
+}
+
+function scopeChangeFileCategoryOverride(relativeRuleFile: string): QueryRulesArgs['category'] | undefined {
+  const base = path.posix.basename(relativeRuleFile.replace(/\\/g, '/')).toLowerCase();
+  return base === 'scope_changes.cwt' || base === 'scope_changes.generated.cwt' || base === 'scope_change.cwt'
+    ? 'scope_change'
+    : undefined;
 }
 
 async function readModifiersLog(host: HostServices, filePath: string): Promise<RuleInfo[]> {
@@ -1256,7 +1304,7 @@ function parseScopesFile(content: string, filePath: string): Map<string, ScopeIn
 function parseCwtFile(
   content: string,
   filePath: string,
-  category: QueryRulesArgs['category'],
+  categoryOverride: QueryRulesArgs['category'] | undefined,
   docs: Map<string, RuleDocInfo>,
   scopes: Map<string, ScopeInfo>,
 ): RuleInfo[] {
@@ -1304,9 +1352,11 @@ function parseCwtFile(
       if (comment && !/^(cardinality|replace_scope)/i.test(comment)) currentDesc = comment;
       continue;
     }
-    const nameMatch = line.match(/^alias\[(?:trigger|effect|modifier):([^\]]+)\]\s*=\s*(.*)/);
-    if (nameMatch?.[1]) {
-      const name = nameMatch[1];
+    const nameMatch = line.match(/^alias\[(trigger|effect|modifier):([^\]]+)\]\s*=\s*(.*)/);
+    if (nameMatch?.[1] && nameMatch[2]) {
+      const aliasKind = nameMatch[1] as QueryRulesArgs['category'];
+      const category = categoryOverride ?? aliasKind;
+      const name = nameMatch[2];
       const doc = docs.get(name);
       const cwtBlockText = collectCwtBlockText(lines, i);
       const scopesForRule = doc?.scopes.length
@@ -1314,7 +1364,7 @@ function parseCwtFile(
         : currentSupportedScopes.length
           ? currentSupportedScopes
           : currentScopes;
-      const syntax = doc?.syntax || normalizeInlineSyntax(name, nameMatch[2] ?? '');
+      const syntax = doc?.syntax || normalizeInlineSyntax(name, nameMatch[3] ?? '');
       const description = doc?.description || currentDesc;
       const semanticHints = buildSemanticHints({
         description,
@@ -1356,6 +1406,101 @@ function parseCwtFile(
       currentDesc = '';
     }
   }
+  return results;
+}
+
+async function readLinksFile(
+  host: HostServices,
+  filePath: string,
+  scopes: Map<string, ScopeInfo>,
+): Promise<RuleInfo[]> {
+  const read = await readRulesTextFile(host, filePath).catch(() => ({ exists: false, content: '', hasBom: false }));
+  if (!read.exists || !/^\s*links\s*=\s*\{/im.test(read.content)) return [];
+  return parseLinksCwtFile(read.content, filePath, scopes);
+}
+
+function parseLinksCwtFile(
+  content: string,
+  filePath: string,
+  scopes: Map<string, ScopeInfo>,
+): RuleInfo[] {
+  const results: RuleInfo[] = [];
+  const lines = content.split(/\r?\n/);
+  let inLinks = false;
+  let depth = 0;
+  let current: { name: string; line: number; inputScopes: string[]; outputScope?: string } | undefined;
+
+  for (let i = 0; i < lines.length; i++) {
+    const rawLine = lines[i] ?? '';
+    const line = stripCwtLineComment(rawLine).trim();
+    if (!inLinks) {
+      if (/^links\s*=\s*\{/.test(line)) {
+        inLinks = true;
+        depth = countBraceDelta(line);
+      }
+      continue;
+    }
+
+    if (!current && depth === 1) {
+      const linkMatch = line.match(/^([A-Za-z_][\w.-]*)\s*=\s*\{\s*$/);
+      if (linkMatch?.[1]) current = { name: linkMatch[1], line: i + 1, inputScopes: [] };
+    } else if (current) {
+      const inputMatch = line.match(/^input_scopes\s*=\s*(.*)$/i);
+      if (inputMatch?.[1]) current.inputScopes = splitRuleValueList(inputMatch[1]).map(normalizeScopeName);
+      const outputMatch = line.match(/^output_scope\s*=\s*(.*)$/i);
+      if (outputMatch?.[1]) {
+        const outputScope = stripRuleValueBraces(outputMatch[1]).split(/\s+/)[0];
+        if (outputScope) current.outputScope = normalizeScopeName(outputScope);
+      }
+    }
+
+    depth += countBraceDelta(line);
+    if (current && depth <= 1) {
+      if (current.outputScope) {
+        const inputScopes = current.inputScopes.length ? current.inputScopes : ['all'];
+        const syntax = `${current.name} = scope link (${inputScopes.join(' | ')} -> ${current.outputScope})`;
+        const linkHint: RuleSemanticHint = {
+          text: `Legal scope link '${current.name}' accepts input scopes { ${inputScopes.join(' ')} } and outputs '${current.outputScope}'. Context pointers such as from/prev/root/this select the current input scope; they are not fixed object fields.`,
+          source: 'links.cwt',
+          file: filePath,
+          line: current.line,
+          confidence: 'hint',
+        };
+        const scopeHints = buildSemanticHints({
+          description: '',
+          cwtDescription: '',
+          scopes,
+          relatedScopeNames: [...inputScopes, current.outputScope],
+          cwtFile: filePath,
+          cwtLine: current.line,
+        });
+        results.push({
+          name: current.name,
+          description: `Legal scope link from { ${inputScopes.join(' ')} } to ${current.outputScope}.`,
+          scopes: inputScopes,
+          syntax,
+          category: 'scope_change',
+          sourceFile: filePath,
+          sourceLine: current.line,
+          hardFacts: {
+            category: 'scope_change',
+            supportedScopes: inputScopes,
+            pushScope: current.outputScope,
+            valueReferences: [],
+            syntax,
+            cwtSource: { file: filePath, line: current.line },
+          },
+          semanticHints: [linkHint, ...scopeHints].slice(0, 8),
+        });
+      }
+      current = undefined;
+    }
+    if (inLinks && depth <= 0) {
+      inLinks = false;
+      current = undefined;
+    }
+  }
+
   return results;
 }
 
@@ -1528,7 +1673,11 @@ function expandIntentTokens(intent: string): string[] {
     [/触发器|觸發器/g, ['trigger']],
     [/效果|效应|效應/g, ['effect']],
   ];
-  const expanded = [...direct];
+  const expanded: string[] = [];
+  for (const token of direct) {
+    expanded.push(token);
+    if (/[.:]/.test(token)) expanded.push(...token.split(/[.:]+/).filter(Boolean));
+  }
   for (const [pattern, tokens] of synonyms) {
     pattern.lastIndex = 0;
     if (pattern.test(intent)) expanded.push(...tokens);
@@ -1599,6 +1748,33 @@ function splitRuleValueList(value: string): string[] {
 
 function stripRuleValueBraces(value: string): string {
   return value.replace(/^\{\s*/, '').replace(/\s*\}$/, '').trim();
+}
+
+function normalizeRuleNameQuery(name: string, category: QueryRulesArgs['category']): string {
+  const lowered = name.trim().toLowerCase();
+  if (category !== 'scope_change' || !lowered.includes('.')) return lowered;
+  const parts = lowered.split('.').map(part => part.trim()).filter(Boolean);
+  return parts[parts.length - 1] ?? lowered;
+}
+
+function scoreRuleNameMatch(name: string, needle: string): number {
+  const lower = name.toLowerCase();
+  if (lower === needle) return 0;
+  if (lower.startsWith(needle)) return 1;
+  return 2;
+}
+
+function normalizeScopeName(scope: string): string {
+  return scope.replace(/^["']|["']$/g, '').trim().toLowerCase();
+}
+
+function countBraceDelta(line: string): number {
+  let delta = 0;
+  for (const ch of line) {
+    if (ch === '{') delta += 1;
+    else if (ch === '}') delta -= 1;
+  }
+  return delta;
 }
 
 function splitWords(value: string): string[] {
