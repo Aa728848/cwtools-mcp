@@ -131,12 +131,25 @@ describe('phase 1 read tool contracts', () => {
 
     expect(result.ok).to.equal(true);
     const rule = result.data!.rules[0];
-    expect(rule?.name).to.equal('colony');
+    expect(rule?.name).to.equal('ship.colony');
     expect(rule!.hardFacts?.category).to.equal('scope_change');
     expect(rule!.hardFacts?.supportedScopes).to.include('ship');
     expect(rule!.hardFacts?.pushScope).to.equal('colony');
+    expect(rule!.syntax).to.equal('ship.colony = { ... }');
     expect(rule!.sourceFile?.replace(/\\/g, '/')).to.include('/links.cwt');
     expect(rule!.semanticHints?.some(hint => hint.source === 'links.cwt')).to.equal(true);
+
+    const multiHop = await queryRulesWithHost(createFsHost(repoRoot), {
+      category: 'scope_change',
+      name: 'ship.colony.owner',
+      scope: 'ship',
+    });
+
+    expect(multiHop.ok).to.equal(true);
+    expect(multiHop.data!.rules[0]!.name).to.equal('ship.colony.owner');
+    expect(multiHop.data!.rules[0]!.hardFacts?.supportedScopes).to.include('ship');
+    expect(multiHop.data!.rules[0]!.hardFacts?.pushScope).to.equal('country');
+    expect(multiHop.data!.rules[0]!.syntax).to.equal('ship.colony.owner = { ... }');
   });
 
   it('scans nested CWT files for rule aliases instead of relying on fixed filenames', async () => {

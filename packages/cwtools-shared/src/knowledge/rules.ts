@@ -206,6 +206,10 @@ export async function queryRulesWithHost(host: HostServices, args: QueryRulesArg
         ? cache.modifiers
         : cache.scopeChanges;
 
+  const dottedScopeChain = args.name && args.category === 'scope_change'
+    ? buildDottedScopeChainRule(args.name, args.scope, cache.scopeChanges)
+    : undefined;
+
   if (args.name) {
     const needle = normalizeRuleNameQuery(args.name, args.category);
     const filtered = rules
@@ -224,6 +228,13 @@ export async function queryRulesWithHost(host: HostServices, args: QueryRulesArg
     } else {
       rules = filtered;
     }
+  }
+
+  if (dottedScopeChain) {
+    rules = [
+      dottedScopeChain,
+      ...rules.filter(rule => rule.name !== dottedScopeChain.name),
+    ];
   }
 
   if (args.scope) {
@@ -1755,6 +1766,77 @@ function normalizeRuleNameQuery(name: string, category: QueryRulesArgs['category
   if (category !== 'scope_change' || !lowered.includes('.')) return lowered;
   const parts = lowered.split('.').map(part => part.trim()).filter(Boolean);
   return parts[parts.length - 1] ?? lowered;
+}
+
+function buildDottedScopeChainRule(
+  query: string,
+  contextScope: string | undefined,
+  scopeChanges: RuleInfo[],
+): RuleInfo | undefined {
+  const rawParts = query.trim().split('.').map(normalizeScopeName).filter(Boolean);
+  if (rawParts.length < 2) return undefined;
+  const contextPointers = new Set(['from', 'prev', 'root', 'this']);
+  const first = rawParts[0]!;
+  const startsWithPointer = contextPointers.has(first);
+  const initialScope = startsWithPointer ? contextScope?.trim().toLowerCase() : first;
+  const linkNames = rawParts.slice(1);
+  if (!initialScope || linkNames.length === 0) return undefined;
+
+  const hops: Array<{ link: RuleInfo; inputScope: string; outputScope: string }> = [];
+  let currentScope = initialScope;
+  for (const linkName of linkNames) {
+    const link = scopeChanges.find(rule =>
+      rule.name.toLowerCase() === linkName
+      && !!rule.hardFacts?.pushScope
+      && scopeListContains(rule.hardFacts.supportedScopes ?? rule.scopes, currentScope)
+    );
+    const outputScope = link?.hardFacts?.pushScope?.trim().toLowerCase();
+    if (!link || !outputScope) return undefined;
+    hops.push({ link, inputScope: currentScope, outputScope });
+    currentScope = outputScope;
+  }
+  if (hops.length === 0) return undefined;
+
+  const normalizedQuery = rawParts.join('.');
+  const syntax = `${normalizedQuery} = { ... }`;
+  const source = hops[0]!.link;
+  const hopText = hops.map(hop => `${hop.inputScope}.${hop.link.name} -> ${hop.outputScope}`).join('; ');
+  const linkHints = hops.map((hop): RuleSemanticHint => ({
+    text: `Dotted scope chain hop '${hop.inputScope}.${hop.link.name}' is legal because links.cwt declares '${hop.link.name}' with input scope '${hop.inputScope}' and output scope '${hop.outputScope}'.`,
+    source: 'links.cwt',
+    file: hop.link.sourceFile,
+    line: hop.link.sourceLine,
+    confidence: 'hint',
+  }));
+
+  return {
+    name: normalizedQuery,
+    description: `Legal dotted scope chain from ${initialScope} to ${currentScope}. Hops: ${hopText}.`,
+    scopes: [initialScope],
+    syntax,
+    category: 'scope_change',
+    sourceFile: source.sourceFile,
+    sourceLine: source.sourceLine,
+    hardFacts: {
+      category: 'scope_change',
+      supportedScopes: [initialScope],
+      pushScope: currentScope,
+      valueReferences: [],
+      syntax,
+      cwtSource: source.sourceFile && source.sourceLine
+        ? { file: source.sourceFile, line: source.sourceLine }
+        : undefined,
+    },
+    semanticHints: linkHints.slice(0, 8),
+  };
+}
+
+function scopeListContains(scopes: readonly string[], scope: string): boolean {
+  const lowerScope = scope.toLowerCase();
+  return scopes.some(candidate => {
+    const lower = candidate.toLowerCase();
+    return lower === lowerScope || lower === 'all' || lower === 'any';
+  });
 }
 
 function scoreRuleNameMatch(name: string, needle: string): number {
