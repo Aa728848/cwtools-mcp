@@ -1,6 +1,6 @@
 {
   "name": "cwtools-mcp",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Read-only MCP server exposing CWTools Paradox/Stellaris semantic tools to external agents",
   "license": "MIT",
   "repository": {
@@ -37,7 +37,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
     "chokidar": "^4.0.3",
-    "cwtools-shared": "0.2.2",
+    "cwtools-shared": "0.2.3",
     "vscode-jsonrpc": "^8.2.0"
   },
   "devDependencies": {
