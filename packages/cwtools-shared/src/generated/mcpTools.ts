@@ -237,11 +237,13 @@ export const GENERATED_MCP_TOOLS = [
             "description": "Absolute file path"
           },
           "line": {
-            "type": "number",
+            "type": "integer",
+            "minimum": 0,
             "description": "Line number (0-based)"
           },
           "column": {
-            "type": "number",
+            "type": "integer",
+            "minimum": 0,
             "description": "Column number (0-based)"
           }
         },
@@ -249,7 +251,8 @@ export const GENERATED_MCP_TOOLS = [
           "file",
           "line",
           "column"
-        ]
+        ],
+        "additionalProperties": false
       }
     },
     "registry": {
