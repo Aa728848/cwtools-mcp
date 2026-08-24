@@ -108,8 +108,8 @@ export class LspProcessHost implements LspHost {
     } catch {
       // ignore disposal failures
     }
-    // Kill only the child WE spawned. On its stdin closing the F# server also
-    // self-exits on EOF, but an explicit kill is the hard guarantee.
+    // Kill only the child we spawned. The standalone Rust server exits on stdin
+    // EOF, but explicit termination is the hard cleanup guarantee.
     try {
       proc?.kill();
     } catch {
@@ -385,7 +385,6 @@ export function resolveDefaultServerPath(): string | undefined {
     path.join(process.cwd(), 'bin', 'server', executable),
     path.join(repoRoot, 'release', 'bin', 'server', executable),
     path.join(repoRoot, 'bin', 'server', executable),
-    path.join(repoRoot, 'src', 'Main', 'output', platform === 'win32' ? 'CWTools Server.exe' : 'CWTools Server'),
   ];
   return candidates.find(candidate => fs.existsSync(candidate)) ?? candidates[0];
 }

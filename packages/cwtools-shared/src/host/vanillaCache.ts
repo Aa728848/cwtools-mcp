@@ -14,8 +14,7 @@ export interface VanillaCacheStatus {
   reason?: string;
 }
 
-// Game id -> `.cwb` prefix, mirroring GameLoader.fs getCachedFiles / Program.fs
-// checkOrSetGameCache. Keep in sync with the F# side.
+// Stable game id to `.cwb` cache prefix used by the Rust language-server contract.
 const GAME_CACHE_PREFIX: Record<string, string> = {
   stellaris: 'stl',
   hoi4: 'hoi4',
