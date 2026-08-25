@@ -86,7 +86,8 @@ export function detectProjectSupport(workspaceRoot: string): ProjectSupport {
   // 3. An immediate child that is a mod root (cwd is a parent holding the mod).
   let children: fs.Dirent[] = [];
   try {
-    children = fs.readdirSync(workspaceRoot, { withFileTypes: true });
+    children = fs.readdirSync(workspaceRoot, { withFileTypes: true })
+      .sort((left, right) => left.name.localeCompare(right.name));
   } catch {
     children = [];
   }

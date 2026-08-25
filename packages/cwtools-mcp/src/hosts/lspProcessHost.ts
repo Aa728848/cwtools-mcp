@@ -133,7 +133,7 @@ export class LspProcessHost implements LspHost {
       throw new Error(this.startError);
     }
 
-    this.process = spawn(serverPath, [], {
+    this.process = spawn(serverPath, ['--stdio'], {
       cwd: this.options.workspaceRoot,
       stdio: ['pipe', 'pipe', 'pipe'],
       windowsHide: true,
@@ -374,8 +374,10 @@ export function resolveDefaultServerPath(): string | undefined {
     : platform === 'darwin'
       ? path.join('osx-x64', 'CWTools Server')
       : path.join('linux-x64', 'CWTools Server');
+  const rustExecutable = platform === 'win32' ? 'cwtools-lsp.exe' : 'cwtools-lsp';
 
   const repoRoot = path.resolve(__dirname, '..', '..', '..', '..');
+  const parentRepoRoot = path.resolve(repoRoot, '..', '..');
   // Prefer the server inside the installed VS Code extension so a user with no dev
   // checkout still gets a working server; fall back to dev-build locations.
   const installed = detectExtensionServerPath();
@@ -385,6 +387,10 @@ export function resolveDefaultServerPath(): string | undefined {
     path.join(process.cwd(), 'bin', 'server', executable),
     path.join(repoRoot, 'release', 'bin', 'server', executable),
     path.join(repoRoot, 'bin', 'server', executable),
+    path.join(process.cwd(), 'rust', 'target', 'release', rustExecutable),
+    path.join(process.cwd(), 'rust', 'target', 'debug', rustExecutable),
+    path.join(parentRepoRoot, 'rust', 'target', 'release', rustExecutable),
+    path.join(parentRepoRoot, 'rust', 'target', 'debug', rustExecutable),
   ];
   return candidates.find(candidate => fs.existsSync(candidate)) ?? candidates[0];
 }

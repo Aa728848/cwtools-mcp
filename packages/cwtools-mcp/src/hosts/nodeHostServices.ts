@@ -29,12 +29,13 @@ import { RevalidationCoordinator } from './revalidation';
 import { detectExtensionCacheDir, detectExtensionRulesDir } from './vscodeCache';
 
 export function createNodeHostServices(config: CwtoolsMcpConfig): HostServices {
-  const workspaceRoot = path.resolve(config.workspaceRoot);
+  const requestedWorkspaceRoot = path.resolve(config.workspaceRoot);
+  const support = detectProjectSupport(requestedWorkspaceRoot);
+  const workspaceRoot = support.matchedAt ? path.resolve(support.matchedAt) : requestedWorkspaceRoot;
   const allowlist = config.allowedTools.length > 0
     ? new Set(config.allowedTools)
     : new Set<string>(MCP_WRITE_TOOL_NAMES);
   const filesystem = new NodeFilesystemHost(workspaceRoot, config.enableWrites);
-  const support = detectProjectSupport(workspaceRoot);
   const enabled = support.supported || config.forceStart;
   // Fall back to the VS Code cwtools extension's globalStorage cache when --cache
   // is omitted, so the MCP reuses the vanilla cache the extension already built.
@@ -57,8 +58,8 @@ export function createNodeHostServices(config: CwtoolsMcpConfig): HostServices {
     console.error(`[cwtools-mcp] info: tool calls will be rejected (no language server) — ${support.reason} (pass --force-start to override)`);
   } else if (!support.supported) {
     console.error(`[cwtools-mcp] info: --force-start set; starting despite: ${support.reason}`);
-  } else if (support.matchedAt && support.matchedAt !== workspaceRoot) {
-    console.error(`[cwtools-mcp] info: mod detected at ${support.matchedAt} (workspace = ${workspaceRoot})`);
+  } else if (support.matchedAt && workspaceRoot !== requestedWorkspaceRoot) {
+    console.error(`[cwtools-mcp] info: using detected mod root ${workspaceRoot} (requested workspace = ${requestedWorkspaceRoot})`);
   }
   if (enabled && !config.cachePath && autoCache) {
     console.error(`[cwtools-mcp] info: auto-detected VS Code extension cache at ${autoCache}`);
