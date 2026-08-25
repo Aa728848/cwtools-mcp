@@ -134,10 +134,11 @@ export class LspProcessHost implements LspHost {
       throw new Error(this.startError);
     }
 
-    this.process = spawn(serverPath, ['--stdio'], {
+    this.process = spawn(serverPath, ['--stdio', '--read-only'], {
       cwd: this.options.workspaceRoot,
       stdio: ['pipe', 'pipe', 'pipe'],
       windowsHide: true,
+      env: { ...process.env, CWTOOLS_READ_ONLY: '1', CWTOOLS_MCP_STANDALONE: '1' },
     });
     this.process.stderr.on('data', chunk => {
       const text = Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk);
