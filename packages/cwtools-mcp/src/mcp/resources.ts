@@ -13,6 +13,7 @@ export const RESOURCE_URIS = [
   'cwtools://knowledge/workflow-hints',
   'cwtools://project/profile',
   'cwtools://project/knowledge-manifest',
+  'cwtools://lsp/readiness',
 ] as const;
 
 export function listResources() {
@@ -22,6 +23,7 @@ export function listResources() {
     { uri: 'cwtools://knowledge/workflow-hints', name: 'CWTools workflow hints', description: 'Reusable workflow hints for diagnostics, localisation, and entity lookup.', mimeType: 'application/json' },
     { uri: 'cwtools://project/profile', name: 'CWTools project profile', description: 'The generated .cwtools/project/profile.json if available.', mimeType: 'application/json' },
     { uri: 'cwtools://project/knowledge-manifest', name: 'CWTools project knowledge manifest', description: 'Freshness, domains, counts, and fingerprints for the /init-generated semantic knowledge pack.', mimeType: 'application/json' },
+    { uri: 'cwtools://lsp/readiness', name: 'CWTools LSP readiness', description: 'Current language-server availability and project loading phase.', mimeType: 'application/json' },
   ];
 }
 
@@ -53,6 +55,10 @@ async function readResourceData(host: HostServices, uri: string): Promise<unknow
       const manifestPath = path.join(host.workspaceRoot, '.cwtools', 'project', 'knowledge', 'manifest.json');
       const read = await host.filesystem.readTextFile(manifestPath);
       return read.exists ? parseJsonResource(read.content, manifestPath) : { status: 'missing', manifestPath, _hint: 'Run /init in the VS Code extension and wait for the deep semantic phase.' };
+    }
+    case 'cwtools://lsp/readiness': {
+      const status = await host.lsp.executeCommand('cwtools.ai.getValidationStatus', [], { timeoutMs: 8_000 });
+      return { workspaceRoot: host.workspaceRoot, status };
     }
     default: return { status: 'error', error: { code: 'resource_not_found', message: `Unknown CWTools MCP resource: ${uri}` } };
   }

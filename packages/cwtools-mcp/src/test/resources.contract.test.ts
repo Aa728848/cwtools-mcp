@@ -15,6 +15,7 @@ describe('MCP resources contract', () => {
       'cwtools://knowledge/workflow-hints',
       'cwtools://project/profile',
       'cwtools://project/knowledge-manifest',
+      'cwtools://lsp/readiness',
     ]);
   });
 

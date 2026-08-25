@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import { promises as fsp } from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process';
@@ -217,8 +218,38 @@ export class LspProcessHost implements LspHost {
       },
     });
     await this.waitForExecuteCommandsReady(20_000);
+    await this.openWorkspaceFiles();
     this.startFileWatcher();
     this.startedAtMs = Date.now();
+  }
+
+  private async openWorkspaceFiles(): Promise<void> {
+    const connection = this.connection;
+    if (!connection) return;
+    const pending = [this.options.workspaceRoot];
+    let opened = 0;
+    while (pending.length > 0 && opened < 10_000) {
+      const directory = pending.shift()!;
+      let entries: fs.Dirent[];
+      try { entries = await fsp.readdir(directory, { withFileTypes: true }); }
+      catch { continue; }
+      entries.sort((left, right) => left.name.localeCompare(right.name));
+      for (const entry of entries) {
+        if (opened >= 10_000) break;
+        if (entry.isDirectory()) {
+          if (!['node_modules', '.git', '.cwtools', '.cwtools-ai'].includes(entry.name.toLowerCase())) pending.push(path.join(directory, entry.name));
+          continue;
+        }
+        const filePath = path.join(directory, entry.name);
+        if (!isLspWatchedFile(this.options.workspaceRoot, filePath, this.options.game)) continue;
+        let text: string;
+        try { text = await fsp.readFile(filePath, 'utf8'); }
+        catch { continue; }
+        if (text.length > 2_000_000) continue;
+        void connection.sendNotification('textDocument/didOpen', { textDocument: { uri: pathToFileUri(filePath), languageId: this.options.game ?? 'paradox', version: 1, text } });
+        opened++;
+      }
+    }
   }
 
   private startFileWatcher(): void {

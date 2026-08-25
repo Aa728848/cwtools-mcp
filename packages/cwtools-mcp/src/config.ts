@@ -129,6 +129,10 @@ export function parseCliArgs(argv: string[]): CwtoolsMcpConfig {
     }
   }
 
+  if (config.standalone) {
+    config.enableWrites = false;
+    config.allowedTools = [];
+  }
   return config;
 }
 
