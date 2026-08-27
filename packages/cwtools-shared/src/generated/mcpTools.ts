@@ -919,33 +919,34 @@ export const GENERATED_MCP_TOOLS = [
   },
   {
     "tool": {
-      "name": "query_definition",
-      "description": "GoToDefinition at a position, or FindAllRefs if no definition exists. Uses CWTools AST - faster than grep. If you know the symbol name, prefer query_definition_by_name instead.",
+      "name": "go_to_definition",
+      "description": "Find a definition by exact symbol name or by a 0-based file position. Uses CWTools semantic lookup when available and falls back to the active VS Code language provider.",
       "inputSchema": {
         "type": "object",
         "properties": {
+          "symbolName": {
+            "type": "string",
+            "description": "Exact symbol name. Use this instead of file/line/column when the identifier is known."
+          },
           "file": {
             "type": "string",
-            "description": "Absolute file path"
+            "description": "Absolute file path inside the workspace."
           },
           "line": {
             "type": "number",
-            "description": "Line number (0-based)"
+            "description": "Line number (0-based)."
           },
           "column": {
             "type": "number",
-            "description": "Column number (0-based)"
+            "description": "Column number (0-based)."
           }
         },
-        "required": [
-          "file",
-          "line",
-          "column"
-        ]
+        "required": [],
+        "additionalProperties": false
       }
     },
     "registry": {
-      "name": "query_definition",
+      "name": "go_to_definition",
       "isWrite": false,
       "isReadOnly": true,
       "effect": "workspace_read",
@@ -955,53 +956,38 @@ export const GENERATED_MCP_TOOLS = [
   },
   {
     "tool": {
-      "name": "query_definition_by_name",
-      "description": "Find where a named symbol is defined - no file/position needed. Returns file path and line number. Works for any top-level PDXScript key (events, triggers, effects, etc.).",
-      "inputSchema": {
-        "type": "object",
-        "properties": {
-          "symbolName": {
-            "type": "string",
-            "description": "The exact name of the symbol to find (e.g. \"samplemod_has_psionic_research\", \"distar.001\")"
-          }
-        },
-        "required": [
-          "symbolName"
-        ]
-      }
-    },
-    "registry": {
-      "name": "query_definition_by_name",
-      "isWrite": false,
-      "isReadOnly": true,
-      "effect": "workspace_read",
-      "riskLevel": 0,
-      "concurrencyClass": "parallel"
-    }
-  },
-  {
-    "tool": {
-      "name": "query_references",
-      "description": "Find references to an identifier through the active language provider, with a bounded workspace text-search fallback.",
+      "name": "find_references",
+      "description": "Find references by exact identifier or by a 0-based file position. Identifier lookup uses workspace symbols plus a bounded text fallback; position lookup uses the active VS Code language provider.",
       "inputSchema": {
         "type": "object",
         "properties": {
           "identifier": {
             "type": "string",
-            "description": "The identifier to search for"
+            "description": "Exact identifier. Use this instead of file/line/column when the name is known."
           },
           "file": {
             "type": "string",
-            "description": "Optional file to limit search to"
+            "description": "Absolute file path inside the workspace."
+          },
+          "line": {
+            "type": "number",
+            "description": "Line number (0-based)."
+          },
+          "column": {
+            "type": "number",
+            "description": "Column number (0-based)."
+          },
+          "limit": {
+            "type": "number",
+            "description": "Maximum references to return (default 100, max 500)."
           }
         },
-        "required": [
-          "identifier"
-        ]
+        "required": [],
+        "additionalProperties": false
       }
     },
     "registry": {
-      "name": "query_references",
+      "name": "find_references",
       "isWrite": false,
       "isReadOnly": true,
       "effect": "workspace_read",

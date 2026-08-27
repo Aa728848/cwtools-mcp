@@ -12,9 +12,8 @@ describe('MCP schema contract', () => {
       'get_completion_at',
       'document_symbols',
       'workspace_symbols',
-      'query_definition',
-      'query_definition_by_name',
-      'query_references',
+      'go_to_definition',
+      'find_references',
     ]);
 
     for (const toolName of MCP_TOOL_NAMES) {

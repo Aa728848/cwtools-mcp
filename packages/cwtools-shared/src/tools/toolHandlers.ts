@@ -260,22 +260,21 @@ export const defaultSharedToolDispatcher: SharedToolDispatcher = async (host, na
         limit: typeof args.limit === 'number' ? args.limit : undefined,
       });
 
-    case 'query_definition':
-      return queryDefinitionWithHost(host, {
-        file: String(args.file ?? ''),
-        line: Number(args.line ?? 0),
-        column: Number(args.column ?? 0),
-      });
+    case 'go_to_definition':
+      return typeof args.symbolName === 'string' && args.symbolName.trim()
+        ? queryDefinitionByNameWithHost(host, { symbolName: args.symbolName })
+        : queryDefinitionWithHost(host, {
+            file: String(args.file ?? ''),
+            line: Number(args.line ?? 0),
+            column: Number(args.column ?? 0),
+          });
 
-    case 'query_definition_by_name':
-      return queryDefinitionByNameWithHost(host, {
-        symbolName: String(args.symbolName ?? ''),
-      });
-
-    case 'query_references':
+    case 'find_references':
       return queryReferencesWithHost(host, {
-        identifier: String(args.identifier ?? ''),
+        identifier: typeof args.identifier === 'string' ? args.identifier : undefined,
         file: typeof args.file === 'string' ? args.file : undefined,
+        line: typeof args.line === 'number' ? args.line : undefined,
+        column: typeof args.column === 'number' ? args.column : undefined,
         limit: typeof args.limit === 'number' ? args.limit : undefined,
       });
 

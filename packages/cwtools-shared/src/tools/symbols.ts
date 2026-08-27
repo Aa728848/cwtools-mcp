@@ -247,7 +247,12 @@ export async function queryDefinitionWithHost(
   host: HostServices,
   args: { file: string; line: number; column: number },
 ): Promise<SharedToolResult> {
-  const resolution = resolveReadableFile(host, args.file);
+  const file = String(args.file ?? '').trim();
+  if (!file || !Number.isInteger(args.line) || args.line < 0
+    || !Number.isInteger(args.column) || args.column < 0) {
+    return toolDenied('invalid_arguments', 'go_to_definition requires symbolName or a non-negative file position.');
+  }
+  const resolution = resolveReadableFile(host, file);
   if ('error' in resolution) return resolution.error;
   const fileUri = toFileUri(resolution.resolvedPath);
 
@@ -286,7 +291,7 @@ export async function queryDefinitionByNameWithHost(
   args: { symbolName: string },
 ): Promise<SharedToolResult> {
   const symbolName = String(args.symbolName ?? '').trim();
-  if (!symbolName) return toolDenied('invalid_arguments', 'query_definition_by_name requires symbolName.');
+  if (!symbolName) return toolDenied('invalid_arguments', 'go_to_definition requires symbolName or a file position.');
 
   const commandResult = await host.lsp.executeCommand<unknown>(
     'cwtools.ai.queryDefinitionByName',
@@ -321,11 +326,34 @@ export async function queryDefinitionByNameWithHost(
 
 export async function queryReferencesWithHost(
   host: HostServices,
-  args: { identifier: string; file?: string; limit?: number },
+  args: { identifier?: string; file?: string; line?: number; column?: number; limit?: number },
 ): Promise<SharedToolResult> {
   const identifier = String(args.identifier ?? '').trim();
-  if (!identifier) return toolDenied('invalid_arguments', 'query_references requires identifier.');
   const limit = clampNumber(args.limit, 50, 1, 200);
+
+  if (!identifier) {
+    if (!args.file || !Number.isInteger(args.line) || (args.line ?? -1) < 0
+      || !Number.isInteger(args.column) || (args.column ?? -1) < 0) {
+      return toolDenied('invalid_arguments', 'find_references requires identifier or file, line, and column.');
+    }
+    const resolution = resolveReadableFile(host, args.file);
+    if ('error' in resolution) return resolution.error;
+    const requested = await requestLsp(host, 'textDocument/references', {
+      textDocument: { uri: toFileUri(resolution.resolvedPath) },
+      position: { line: args.line, character: args.column },
+      context: { includeDeclaration: true },
+    }, 10_000);
+    const references = normalizeLocations(requested.data, host.workspaceRoot).slice(0, limit);
+    return {
+      ok: !requested.unavailable,
+      status: requested.unavailable ? 'unavailable' : 'ready',
+      source: 'cwtools-lsp-references',
+      data: { references, total: references.length },
+      error: requested.unavailable
+        ? { code: 'lsp_unavailable', message: requested.message ?? 'Reference provider is unavailable.' }
+        : undefined,
+    };
+  }
 
   const definition = await queryDefinitionByNameWithHost(host, { symbolName: identifier });
   const firstMatch = definition.data && typeof definition.data === 'object'

@@ -10,9 +10,8 @@ describe('MCP tools/list contract', () => {
       'get_completion_at',
       'document_symbols',
       'workspace_symbols',
-      'query_definition',
-      'query_definition_by_name',
-      'query_references',
+      'go_to_definition',
+      'find_references',
     ]);
     for (const tool of tools) {
       expect(tool.description).to.be.a('string').and.not.equal('');

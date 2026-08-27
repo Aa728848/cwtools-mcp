@@ -30,7 +30,7 @@ const SERVER_INSTRUCTIONS = [
   '- Before declaring code correct, review get_diagnostics (whole project). Honor the',
   '  readiness/freshness fields: if readiness.ready is false the project is still loading —',
   '  retry; an empty result then is not authoritative.',
-  '- Navigate with query_definition / query_definition_by_name / query_references /',
+  '- Navigate with go_to_definition / find_references /',
   '  document_symbols / workspace_symbols; read structured blocks with get_pdx_block',
   '  instead of reading whole files. get_entity_info gives a file\'s referenced types/vars.',
   '- Results carry vanillaCache metadata: if available is false, vanilla IDs are missing',

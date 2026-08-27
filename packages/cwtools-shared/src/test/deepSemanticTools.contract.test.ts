@@ -16,6 +16,10 @@ function recordingHost(calls: Array<{ command: string; args: unknown[] }>): Host
       }
       return { ok: true, instances: [], totalCount: 0 } as never;
     },
+    async request(method: string, params: unknown) {
+      calls.push({ command: method, args: [params] });
+      return [] as never;
+    },
   };
   return {
     workspaceRoot: process.cwd(),
@@ -64,6 +68,44 @@ describe('deep semantic tools routing contract', () => {
     const hit = calls.find(c => c.command === 'cwtools.ai.getEntityInfo');
     expect(hit).to.not.equal(undefined);
     expect(String(hit!.args[0])).to.match(/^file:\/\/\//);
+  });
+
+  it('go_to_definition routes both exact-name and position forms', async () => {
+    const byName: Array<{ command: string; args: unknown[] }> = [];
+    await defaultSharedToolDispatcher(recordingHost(byName), 'go_to_definition', { symbolName: 'sample.1' });
+    expect(byName.find(call => call.command === 'cwtools.ai.queryDefinitionByName')?.args)
+      .to.deep.equal(['sample.1']);
+
+    const byPosition: Array<{ command: string; args: unknown[] }> = [];
+    await defaultSharedToolDispatcher(recordingHost(byPosition), 'go_to_definition', {
+      file: 'events/sample.txt', line: 4, column: 2,
+    });
+    const hit = byPosition.find(call => call.command === 'cwtools.ai.queryDefinition');
+    expect(hit).to.not.equal(undefined);
+    expect(String(hit!.args[0])).to.match(/^file:\/\/\//);
+    expect(hit!.args.slice(1)).to.deep.equal([4, 2]);
+  });
+
+  it('go_to_definition rejects an invalid position before calling LSP', async () => {
+    const calls: Array<{ command: string; args: unknown[] }> = [];
+    const result = await defaultSharedToolDispatcher(recordingHost(calls), 'go_to_definition', {
+      file: 'events/sample.txt', line: -1, column: 0,
+    });
+    expect(result.ok).to.equal(false);
+    expect(result.error?.code).to.equal('invalid_arguments');
+    expect(calls).to.deep.equal([]);
+  });
+
+  it('find_references routes a position through the LSP reference provider', async () => {
+    const calls: Array<{ command: string; args: unknown[] }> = [];
+    await defaultSharedToolDispatcher(recordingHost(calls), 'find_references', {
+      file: 'events/sample.txt', line: 4, column: 2, limit: 25,
+    });
+    const hit = calls.find(call => call.command === 'textDocument/references');
+    expect(hit).to.not.equal(undefined);
+    const params = hit!.args[0] as { textDocument: { uri: unknown }; position: unknown };
+    expect(String(params.textDocument.uri)).to.match(/^file:\/\/\//);
+    expect(params.position).to.deep.equal({ line: 4, character: 2 });
   });
 
   it('explore_pdx_project routes bounded graph options to cwtools.ai.exploreProject', async () => {
