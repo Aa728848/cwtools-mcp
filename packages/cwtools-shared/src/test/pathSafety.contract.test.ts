@@ -29,8 +29,8 @@ describe('path safety contract', () => {
     expect(validateLocalisationPath(workspaceRoot, 'common/test_l_english.yml').reason).to.equal('not_localisation_directory');
   });
 
-  it('rejects .cwtools-ai scratch localisation writes', () => {
-    const result = validateLocalisationPath(workspaceRoot, '.cwtools-ai/topic/scratch/bad_l_english.yml');
+  it('rejects .cwtools scratch localisation writes', () => {
+    const result = validateLocalisationPath(workspaceRoot, '.cwtools/topic/scratch/bad_l_english.yml');
     expect(result.ok).to.equal(false);
     expect(result.reason).to.equal('scratch_path');
   });

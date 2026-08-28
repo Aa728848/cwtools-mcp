@@ -27,8 +27,6 @@ export interface ProjectProfile {
   workspaceRoot: string;
   workspaceKind: string;
   projectName: string;
-  /** True when a schemaVersion 1 profile was read and normalized. */
-  legacyProfile?: boolean;
   game: {
     id: string;
     displayName: string;
@@ -70,22 +68,13 @@ export interface ProjectProfile {
 export const PROJECT_PROFILE_RELATIVE_PATH = path.join('.cwtools', 'project', 'profile.json');
 
 export function getProjectProfilePath(workspaceRoot: string): string {
-  try {
-    const fs = require('fs');
-    const primary = path.join(workspaceRoot, '.cwtools', 'project', 'profile.json');
-    if (fs.existsSync(primary)) return primary;
-    const legacy = path.join(workspaceRoot, '.cwtools-ai', 'project', 'profile.json');
-    if (fs.existsSync(legacy)) return legacy;
-    return primary;
-  } catch {
-    return path.join(workspaceRoot, PROJECT_PROFILE_RELATIVE_PATH);
-  }
+  return path.join(workspaceRoot, PROJECT_PROFILE_RELATIVE_PATH);
 }
 
 export function isProjectProfile(value: unknown): value is ProjectProfile {
   return !!value
     && typeof value === 'object'
-    && ((value as { schemaVersion?: unknown }).schemaVersion === 1 || (value as { schemaVersion?: unknown }).schemaVersion === 2)
+    && (value as { schemaVersion?: unknown }).schemaVersion === 2
     && typeof (value as { projectName?: unknown }).projectName === 'string';
 }
 

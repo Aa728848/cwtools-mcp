@@ -36,7 +36,6 @@ describe('MCP resources contract', () => {
 
     expect(reads).to.have.length(1);
     expect(reads[0]).to.match(/\.cwtools\/project\/knowledge\/manifest\.json$/);
-    expect(reads[0]).not.to.include('.cwtools-ai');
   });
 });
 

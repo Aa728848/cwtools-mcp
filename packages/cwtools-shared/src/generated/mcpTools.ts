@@ -337,10 +337,6 @@ export const GENERATED_MCP_TOOLS = [
           "toolResult": {
             "type": "object",
             "description": "Optional raw failed tool result to classify without querying diagnostics again."
-          },
-          "reflection": {
-            "type": "string",
-            "description": "Optional legacy free-form analysis from the model. Kept for backward compatibility; the host still returns deterministic routing advice."
           }
         },
         "required": []
@@ -383,7 +379,6 @@ export const GENERATED_MCP_TOOLS = [
               "build",
               "plan",
               "explore",
-              "general",
               "utility",
               "review",
               "gui_expert",

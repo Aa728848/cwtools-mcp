@@ -52,21 +52,6 @@ describe('project knowledge contract', () => {
     }
   });
 
-  it('reports a missing pack without falling back to guessed knowledge', async () => {
-    const workspaceRoot = fs.mkdtempSync(`${tempBase}-`);
-    try {
-      const removedLegacyRoot = path.join(workspaceRoot, '.cwtools-ai', 'project', 'knowledge');
-      fs.mkdirSync(removedLegacyRoot, { recursive: true });
-      fs.writeFileSync(path.join(removedLegacyRoot, 'manifest.json'), JSON.stringify({ schemaVersion: 7 }), 'utf8');
-      const result = await queryProjectKnowledgeWithHost(createFsHost(workspaceRoot), {});
-      expect(result.ok).to.equal(false);
-      expect(result.status).to.equal('unavailable');
-      expect((result.data as Record<string, unknown>).status).to.equal('missing');
-    } finally {
-      fs.rmSync(workspaceRoot, { recursive: true, force: true });
-    }
-  });
-
   it('routes current V7 knowledge queries through the read-only SQLite LSP command', async () => {
     const workspaceRoot = fs.mkdtempSync(`${tempBase}-`);
     try {

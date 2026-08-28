@@ -225,7 +225,7 @@ export class LspProcessHost implements LspHost {
     if (this.fileWatcher) return;
     const watcher = watch(this.options.workspaceRoot, {
       ignoreInitial: true,
-      ignored: [/(^|[\\/])(?:node_modules|\.git|\.cwtools|\.cwtools-ai)(?:[\\/]|$)/],
+      ignored: [/(^|[\\/])(?:node_modules|\.(?!\.)[^\\/]+)(?:[\\/]|$)/],
       awaitWriteFinish: { stabilityThreshold: 120, pollInterval: 30 },
     });
     watcher.on('add', filePath => this.queueWatchedFileChange(filePath, 1));
@@ -424,9 +424,7 @@ export function isLspWatchedFile(workspaceRoot: string, filePath: string, game?:
   if (!relative || relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) return false;
   const segments = relative.split(/[\\/]+/).map(segment => segment.toLowerCase());
   if (segments.some(segment => segment === 'node_modules'
-    || segment === '.git'
-    || segment === '.cwtools'
-    || segment === '.cwtools-ai')) return false;
+    || (segment.startsWith('.') && !segment.startsWith('..')))) return false;
   const extension = path.extname(filePath).toLowerCase();
   if (extension === '.csv' && game && game.toLowerCase() !== 'ck2') return false;
   return LSP_WATCHED_EXTENSIONS.has(extension);

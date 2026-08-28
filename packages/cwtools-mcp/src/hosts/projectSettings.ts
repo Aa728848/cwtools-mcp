@@ -47,7 +47,6 @@ interface CachedSettings {
 
 const cache = new Map<string, CachedSettings>();
 const SETTINGS_NAMESPACE = 'stellarisLanguageServices';
-const LEGACY_SETTINGS_NAMESPACE = 'cwtools';
 
 function readSettingsObject(workspaceRoot: string): Record<string, unknown> | undefined {
   const file = path.join(workspaceRoot, '.vscode', 'settings.json');
@@ -93,10 +92,7 @@ function resolveDotted(obj: Record<string, unknown>, fullKey: string): unknown {
 export function getExtensionSetting(workspaceRoot: string, subKey: string): unknown {
   const settings = readSettingsObject(workspaceRoot);
   if (!settings) return undefined;
-  const current = resolveDotted(settings, `${SETTINGS_NAMESPACE}.${subKey}`);
-  return current !== undefined
-    ? current
-    : resolveDotted(settings, `${LEGACY_SETTINGS_NAMESPACE}.${subKey}`);
+  return resolveDotted(settings, `${SETTINGS_NAMESPACE}.${subKey}`);
 }
 
 function asNonEmptyStringArray(value: unknown): string[] {

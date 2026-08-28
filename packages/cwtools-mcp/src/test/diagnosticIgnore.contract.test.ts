@@ -33,11 +33,6 @@ describe('MCP diagnostic ignore whitelist contract', () => {
     expect(readIgnoredDiagnostics(ws)).to.deep.equal(['nested-key']);
   });
 
-  it('falls back to legacy AI settings for existing projects', () => {
-    const ws = tmpWorkspace(JSON.stringify({ 'cwtools.ai.ignoredDiagnostics': ['legacy-key'] }));
-    expect(readIgnoredDiagnostics(ws)).to.deep.equal(['legacy-key']);
-  });
-
   it('returns [] when no settings file or key is present', () => {
     expect(readIgnoredDiagnostics(tmpWorkspace())).to.deep.equal([]);
     expect(readIgnoredDiagnostics(tmpWorkspace('{ "editor.tabSize": 2 }'))).to.deep.equal([]);
@@ -76,13 +71,6 @@ describe('MCP localisation language contract', () => {
 
   it('uses the explicit stellarisLanguageServices.localisation.languages setting', () => {
     const ws = tmpWorkspace(JSON.stringify({ 'stellarisLanguageServices.localisation.languages': ['Chinese'] }));
-    const r = resolveLocalisationLanguages(ws);
-    expect(r.languages).to.deep.equal(['Chinese']);
-    expect(r.source).to.equal('settings');
-  });
-
-  it('falls back to legacy localisation settings for existing projects', () => {
-    const ws = tmpWorkspace(JSON.stringify({ 'cwtools.localisation.languages': ['Chinese'] }));
     const r = resolveLocalisationLanguages(ws);
     expect(r.languages).to.deep.equal(['Chinese']);
     expect(r.source).to.equal('settings');

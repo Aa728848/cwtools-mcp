@@ -29,7 +29,7 @@ describe('MCP project detection contract', () => {
 
   it('detects a mod in an immediate subfolder (cwd is a parent)', () => {
     const parent = tmp('child');
-    fs.mkdirSync(path.join(parent, 'MyMod', '.cwtools-ai'), { recursive: true });
+    fs.mkdirSync(path.join(parent, 'MyMod', '.cwtools'), { recursive: true });
     const r = detectProjectSupport(parent);
     expect(r.supported).to.equal(true);
     expect(r.matchedAt).to.equal(path.join(parent, 'MyMod'));

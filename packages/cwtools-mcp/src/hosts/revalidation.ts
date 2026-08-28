@@ -5,7 +5,7 @@ import { pathToFileUri } from './lspProcessHost';
 
 // File extensions the language server validates — only these are worth revalidating.
 const REVALIDATE_EXTS = new Set(['.txt', '.yml', '.gui', '.gfx', '.asset', '.shader', '.fxh']);
-const SKIP_DIRS = new Set(['node_modules', 'dist', 'coverage', '.git', '.cwtools', '.cwtools-ai', '.vscode']);
+const SKIP_DIRS = new Set(['node_modules', 'dist', 'coverage']);
 const MAX_WALK_FILES = 20000;
 const MAX_BATCH = 200;
 

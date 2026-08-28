@@ -16,7 +16,7 @@ describe('standalone LSP file watcher contract', () => {
   });
 
   it('ignores generated/private directories, unsupported files, and paths outside the workspace', () => {
-    assert.equal(isLspWatchedFile(root, path.join(root, '.cwtools-ai', 'topic', 'scratch.txt')), false);
+    assert.equal(isLspWatchedFile(root, path.join(root, '.private', 'scratch.txt')), false);
     assert.equal(isLspWatchedFile(root, path.join(root, '.git', 'config')), false);
     assert.equal(isLspWatchedFile(root, path.join(root, 'notes.md')), false);
     assert.equal(isLspWatchedFile(root, path.resolve(root, '..', 'other', 'events.txt')), false);

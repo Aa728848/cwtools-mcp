@@ -59,7 +59,7 @@ export function isScratchRelativePath(relativePath: string): boolean {
     .replace(/\\/g, '/')
     .toLowerCase()
     .split('/');
-  return parts.includes('.cwtools') || parts.includes('.cwtools-ai');
+  return parts.includes('.cwtools');
 }
 
 export function validateLocalisationPath(workspaceRoot: string, inputPath: string): LocalisationPathValidation {
