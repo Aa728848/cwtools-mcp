@@ -77,7 +77,7 @@ export function createBridgeProxyMcpServer(config: CwtoolsMcpConfig): Server {
         'CWTools MCP is served by the active VS Code-compatible extension host.',
         'This proxy does not start its own CWTools language server. If calls report',
         'bridge_unavailable, open the project in the compatible host where the extension',
-        'is installed and active, or rerun with --standalone to use the legacy isolated mode.',
+        'is installed and active, or rerun with --standalone to use the standalone LSP host.',
       ].join('\n'),
     },
   );
@@ -187,7 +187,7 @@ async function readBridgeManifest(config: CwtoolsMcpConfig, server: Server): Pro
   if (parsed.kind !== 'cwtools-mcp-extension-bridge' || parsed.protocolVersion !== BRIDGE_PROTOCOL_VERSION) {
     throw new Error(
       `CWTools MCP bridge manifest at ${manifestPath} is not compatible with this proxy. ` +
-      `Open the project in the updated extension host, or pass --standalone for legacy isolated mode.`,
+      `Open the project in the updated extension host, or pass --standalone to use the standalone LSP host.`,
     );
   }
   if (!parsed.rpcUrl || !parsed.token) {

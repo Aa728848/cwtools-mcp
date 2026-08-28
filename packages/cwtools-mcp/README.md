@@ -95,9 +95,8 @@ intentionally does not silently fall back to a separate language server.
 
 ### Optional Standalone Mode
 
-Use standalone mode only when you explicitly want the legacy behavior: the MCP
-process starts its own CWTools language server and builds its own diagnostic
-state.
+Use standalone mode only when you explicitly want the MCP process to start its
+own CWTools language server and build an independent diagnostic state.
 
 ```sh
 cwtools-mcp --standalone --workspace /path/to/mod --game stellaris --stdio

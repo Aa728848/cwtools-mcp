@@ -175,7 +175,7 @@ export function helpText(): string {
     '  or --workspace when supplied) must match the bridge workspace exactly. If the',
     '  compatible host is closed or the workspace does not match, tool calls return an',
     '  actionable unavailable error.',
-    '  Use --standalone only when you intentionally want the legacy self-hosted LSP mode.',
+    '  Use --standalone only when you intentionally want the standalone self-hosted LSP mode.',
     '',
     'Vanilla data (needed for vanilla IDs and correct mod-vs-vanilla diagnostics):',
     '  (auto)              If neither flag is given, the VS Code cwtools extension cache',

@@ -354,7 +354,7 @@ export const GENERATED_MCP_TOOLS = [
   {
     "tool": {
       "name": "query_project_profile",
-      "description": "Read the /init-generated Agent project profile from .cwtools/project/profile.json. Use this before broad scans to get workspace type, key directories, localisation languages/encoding, namespaces, workflow routing, validation hints, and mode-specific prompt cards.",
+      "description": "Read the /init-generated Agent project profile from .cwtools/project/profile.json. Use this before broad scans to get workspace type, key directories, localisation languages/encoding, namespaces, workflow routing, validation hints, and targeted guidance cards.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -368,28 +368,25 @@ export const GENERATED_MCP_TOOLS = [
               "identifiers",
               "validation",
               "compatibility",
-              "promptCards",
+              "guidanceCards",
               "all"
             ],
             "description": "Targeted profile section to return. Default summary. Use all only when you need the whole profile."
           },
-          "mode": {
+          "guidance": {
             "type": "string",
             "enum": [
-              "build",
-              "plan",
-              "explore",
-              "utility",
+              "implementation",
+              "planning",
+              "exploration",
               "review",
-              "gui_expert",
-              "script_reviewer",
-              "loc_translator",
-              "loc_writer",
-              "orchestrator",
-              "script",
-              "asset"
+              "utility",
+              "localisation",
+              "assets",
+              "coordination",
+              "paradox_coordination"
             ],
-            "description": "Optional mode card to return, e.g. build, plan, loc_writer, asset, orchestrator, script."
+            "description": "Optional guidance card to return for the current task concern."
           }
         },
         "required": []

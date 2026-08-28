@@ -55,7 +55,7 @@ describe('MCP extension rules detection contract', () => {
     expect(detectExtensionRulesDir(tmp, undefined)).to.equal(config);
   });
 
-  it('ignores legacy extension globalStorage rules', () => {
+  it('ignores obsolete extension globalStorage rules', () => {
     const legacyConfig = path.join(globalStorageRoot(), 'foreverskywalker.eddy-stellaris-cwt', '.cwtools', 'stellaris', 'config');
     fs.mkdirSync(legacyConfig, { recursive: true });
     fs.writeFileSync(path.join(legacyConfig, 'effects.cwt'), 'x');

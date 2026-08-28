@@ -2,27 +2,24 @@ import * as path from 'path';
 import type { HostServices } from '../host/hostServices';
 import type { SharedToolResult } from '../tools/schema';
 
-export type AgentMode =
-  | 'build'
-  | 'plan'
-  | 'explore'
-  | 'general'
-  | 'utility'
+export type ProjectGuidanceCard =
+  | 'implementation'
+  | 'planning'
+  | 'exploration'
   | 'review'
-  | 'gui_expert'
-  | 'script_reviewer'
-  | 'loc_translator'
-  | 'loc_writer'
-  | 'orchestrator'
-  | 'script';
+  | 'utility'
+  | 'localisation'
+  | 'assets'
+  | 'coordination'
+  | 'paradox_coordination';
 
 export interface QueryProjectProfileArgs {
-  section?: 'summary' | 'routing' | 'directories' | 'localisation' | 'identifiers' | 'validation' | 'compatibility' | 'promptCards' | 'all';
-  mode?: AgentMode | 'asset';
+  section?: 'summary' | 'routing' | 'directories' | 'localisation' | 'identifiers' | 'validation' | 'compatibility' | 'guidanceCards' | 'all';
+  guidance?: ProjectGuidanceCard;
 }
 
 export interface ProjectProfile {
-  schemaVersion: 2;
+  schemaVersion: 4;
   generatedAt: string;
   workspaceRoot: string;
   workspaceKind: string;
@@ -60,7 +57,7 @@ export interface ProjectProfile {
   validation: Record<string, unknown>;
   freshness?: Record<string, unknown>;
   warnings?: string[];
-  promptCards: Partial<Record<AgentMode | 'asset', string>>;
+  guidanceCards: Partial<Record<ProjectGuidanceCard, string>>;
   efficiencyHints: string[];
   [key: string]: unknown;
 }
@@ -74,7 +71,7 @@ export function getProjectProfilePath(workspaceRoot: string): string {
 export function isProjectProfile(value: unknown): value is ProjectProfile {
   return !!value
     && typeof value === 'object'
-    && (value as { schemaVersion?: unknown }).schemaVersion === 2
+    && (value as { schemaVersion?: unknown }).schemaVersion === 4
     && typeof (value as { projectName?: unknown }).projectName === 'string';
 }
 
@@ -95,12 +92,9 @@ export function buildProfileSummary(profile: ProjectProfile): string {
   ].join('\n');
 }
 
-export function getPromptCardForMode(profile: ProjectProfile, mode?: AgentMode | 'asset'): string | undefined {
-  if (!mode) return undefined;
-  if (mode === 'loc_translator' || mode === 'loc_writer') return profile.promptCards.loc_writer ?? profile.promptCards.build;
-  if (mode === 'gui_expert') return profile.promptCards.asset ?? profile.promptCards.build;
-  if (mode === 'script_reviewer') return profile.promptCards.review;
-  return profile.promptCards[mode] ?? profile.promptCards.build;
+export function getGuidanceCard(profile: ProjectProfile, guidance?: ProjectGuidanceCard): string | undefined {
+  if (!guidance) return undefined;
+  return profile.guidanceCards[guidance] ?? profile.guidanceCards.implementation;
 }
 
 export function selectProfileSection(profile: ProjectProfile, section: NonNullable<QueryProjectProfileArgs['section']>): unknown {
@@ -117,7 +111,7 @@ export function selectProfileSection(profile: ProjectProfile, section: NonNullab
       vanillaCache: profile.validation?.vanillaCache,
       game: profile.game,
     };
-    case 'promptCards': return profile.promptCards;
+    case 'guidanceCards': return profile.guidanceCards;
     case 'all': return profile;
     case 'summary':
     default:
@@ -166,7 +160,7 @@ export async function queryProjectProfileWithHost(
         source: 'cwtools-shared',
         error: {
           code: 'invalid_profile',
-          message: 'Project profile exists but is not a valid schemaVersion 1 or 2 profile.',
+          message: 'Project profile exists but is not a valid schemaVersion 4 profile.',
         },
       };
     }
@@ -184,8 +178,8 @@ export async function queryProjectProfileWithHost(
         profile: section === 'all' ? parsed : undefined,
         summary: buildProfileSummary(parsed),
         data: selectProfileSection(parsed, section),
-        promptCard: getPromptCardForMode(parsed, args.mode),
-        _hint: 'Use section="routing", "localisation", "identifiers", or a mode-specific promptCard for targeted context.',
+        guidanceCard: getGuidanceCard(parsed, args.guidance),
+        _hint: 'Use section="routing", "localisation", "identifiers", or a targeted guidance card for focused context.',
       },
     };
   } catch (error) {
