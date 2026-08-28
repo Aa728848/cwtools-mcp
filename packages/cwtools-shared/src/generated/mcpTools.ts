@@ -234,7 +234,7 @@ export const GENERATED_MCP_TOOLS = [
         "properties": {
           "file": {
             "type": "string",
-            "description": "Absolute file path"
+            "description": "Absolute path inside the workspace or a configured game installation."
           },
           "line": {
             "type": "integer",
@@ -559,7 +559,7 @@ export const GENERATED_MCP_TOOLS = [
           },
           "file": {
             "type": "string",
-            "description": "Optional workspace-relative or absolute file path used to restrict entry points."
+            "description": "Optional workspace-relative path or absolute path inside the workspace/configured game installation used to restrict entry points."
           },
           "typeName": {
             "type": "string",
@@ -628,7 +628,7 @@ export const GENERATED_MCP_TOOLS = [
           },
           "file": {
             "type": "string",
-            "description": "Caller file; narrows to one invocation."
+            "description": "Caller file inside the workspace or a configured game installation; narrows to one invocation."
           },
           "line": {
             "type": "number",
@@ -660,7 +660,7 @@ export const GENERATED_MCP_TOOLS = [
         "properties": {
           "file": {
             "type": "string",
-            "description": "Optional file path to analyze; when omitted a definitionId must be given."
+            "description": "Optional path inside the workspace or a configured game installation; when omitted a definitionId must be given."
           },
           "definitionId": {
             "type": "string",
@@ -785,13 +785,13 @@ export const GENERATED_MCP_TOOLS = [
   {
     "tool": {
       "name": "get_pdx_block",
-      "description": "Extract exactly one complete AST block by symbol name. Works with .txt (events, common), .gui (containerWindowType by name), and .gfx (pdxmesh by name). Returns 1-based startLine/endLine that can be passed directly to replace_lines. If the symbol is not found, the error response includes a full list of available symbols with line ranges so you can retry with the correct name.",
+      "description": "Extract exactly one complete AST block by symbol name from the workspace or a configured game installation. Works with .txt (events, common), .gui (containerWindowType by name), and .gfx (pdxmesh by name). Returns 1-based startLine/endLine that can be passed directly to replace_lines. If the symbol is not found, the error response includes a full list of available symbols with line ranges so you can retry with the correct name.",
       "inputSchema": {
         "type": "object",
         "properties": {
           "file": {
             "type": "string",
-            "description": "Absolute file path"
+            "description": "Absolute path inside the workspace or a configured game installation."
           },
           "symbol": {
             "type": "string",
@@ -822,7 +822,7 @@ export const GENERATED_MCP_TOOLS = [
         "properties": {
           "file": {
             "type": "string",
-            "description": "Absolute file path (must be in the workspace)"
+            "description": "Absolute file path inside the workspace or a configured game installation."
           },
           "line": {
             "type": "number",
@@ -862,7 +862,7 @@ export const GENERATED_MCP_TOOLS = [
         "properties": {
           "file": {
             "type": "string",
-            "description": "Absolute file path"
+            "description": "Absolute path inside the workspace or a configured game installation."
           }
         },
         "required": [
@@ -922,7 +922,7 @@ export const GENERATED_MCP_TOOLS = [
           },
           "file": {
             "type": "string",
-            "description": "Absolute file path inside the workspace."
+            "description": "Absolute file path inside the workspace or a configured game installation."
           },
           "line": {
             "type": "number",
@@ -959,7 +959,7 @@ export const GENERATED_MCP_TOOLS = [
           },
           "file": {
             "type": "string",
-            "description": "Absolute file path inside the workspace."
+            "description": "Absolute file path inside the workspace or a configured game installation."
           },
           "line": {
             "type": "number",
@@ -1132,7 +1132,7 @@ export const GENERATED_MCP_TOOLS = [
         "properties": {
           "file": {
             "type": "string",
-            "description": "Absolute file path (must be a parsed mod file)"
+            "description": "Absolute path to a parsed file inside the workspace or a configured game installation."
           }
         },
         "required": [
@@ -1201,7 +1201,7 @@ export const GENERATED_MCP_TOOLS = [
         "properties": {
           "file": {
             "type": "string",
-            "description": "Absolute or workspace-relative path of the .shader/.fxh file."
+            "description": "Workspace-relative path or absolute path inside the workspace/configured game installation."
           }
         },
         "required": [
@@ -1227,7 +1227,7 @@ export const GENERATED_MCP_TOOLS = [
         "properties": {
           "file": {
             "type": "string",
-            "description": "Absolute or workspace-relative path of the .shader/.fxh file."
+            "description": "Workspace-relative path or absolute path inside the workspace/configured game installation."
           }
         },
         "required": [
@@ -1287,7 +1287,7 @@ export const GENERATED_MCP_TOOLS = [
           },
           "file": {
             "type": "string",
-            "description": "Absolute or workspace-relative path of a .shader/.fxh file; lists its Effects with cursor pagination."
+            "description": "Workspace-relative path or absolute path inside the workspace/configured game installation; lists its Effects with cursor pagination."
           },
           "limit": {
             "type": "number",
@@ -1319,7 +1319,7 @@ export const GENERATED_MCP_TOOLS = [
         "properties": {
           "file": {
             "type": "string",
-            "description": "Absolute or workspace-relative path of the .shader/.fxh file."
+            "description": "Workspace-relative path or absolute path inside the workspace/configured game installation."
           }
         },
         "required": [
@@ -1349,7 +1349,7 @@ export const GENERATED_MCP_TOOLS = [
           },
           "file": {
             "type": "string",
-            "description": "Absolute or workspace-relative path of a .shader/.fxh file."
+            "description": "Workspace-relative path or absolute path inside the workspace/configured game installation."
           }
         },
         "required": []
