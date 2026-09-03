@@ -7,7 +7,8 @@ export type ToolEffect =
   | 'shell'
   | 'git'
   | 'media'
-  | 'mcp';
+  | 'mcp'
+  | 'process';
 
 export type ToolConcurrencyClass =
   | 'parallel'

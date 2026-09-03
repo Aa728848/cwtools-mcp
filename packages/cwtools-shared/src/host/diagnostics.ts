@@ -1,4 +1,4 @@
-export type DiagnosticSeverity = 'error' | 'warning' | 'information' | 'hint';
+export type DiagnosticSeverity = 'error' | 'warning' | 'info' | 'information' | 'hint';
 export type DiagnosticsFreshness = 'fresh' | 'pending' | 'stale' | 'unavailable';
 
 export interface DiagnosticRecord {
