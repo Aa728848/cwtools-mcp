@@ -354,7 +354,7 @@ export const GENERATED_MCP_TOOLS = [
   {
     "tool": {
       "name": "query_project_profile",
-      "description": "Read the /init-generated Agent project profile from .cwtools/project/profile.json. Use this before broad scans to get workspace type, key directories, localisation languages/encoding, namespaces, workflow routing, validation hints, and targeted guidance cards.",
+      "description": "Read the /init-generated Agent project profile from .cwtools/project/profile.json. Use this before broad scans to get workspace type, key directories, localisation languages/encoding, namespaces, routing hints, validation hints, and targeted guidance cards.",
       "inputSchema": {
         "type": "object",
         "properties": {
