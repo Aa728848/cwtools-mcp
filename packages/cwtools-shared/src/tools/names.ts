@@ -15,6 +15,7 @@ export const MCP_TOOL_NAMES = [
   'query_inline_instantiation',
   'analyze_pdx_flow',
   'compare_definition_with_vanilla',
+  'query_targeting_weight',
   'query_localisation_index',
   'get_pdx_block',
   'get_completion_at',
