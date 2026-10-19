@@ -1,6 +1,7 @@
 MIT License
 
 Copyright (c) 2018 Eddy
+Copyright (c) 2026 EDDYCRAZY-CC (modifications and additions in this repository)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -19,3 +20,8 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---
+
+This package was split out of `cwtools-vscode`. The CWTools language tooling it
+builds on is Copyright (c) 2018 Thomas Boby and distributed under the MIT License.
