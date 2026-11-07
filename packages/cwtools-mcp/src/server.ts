@@ -65,11 +65,11 @@ export function createCwtoolsMcpServer(
   // CWTools exists (instead of falling back to hunting for a CLI). The heavy work
   // is gated at call time below, not by hiding the toolset.
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: listRegisteredTools(),
+    tools: listRegisteredTools({ includeWrites: host.writesEnabled === true && host.readonlyMode === false }),
   }));
 
   server.setRequestHandler(ListResourcesRequestSchema, async () => ({
-    resources: listResources(),
+    resources: listResources(host),
   }));
 
   server.setRequestHandler(ReadResourceRequestSchema, async request =>

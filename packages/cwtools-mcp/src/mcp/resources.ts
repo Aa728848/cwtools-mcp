@@ -5,6 +5,8 @@ import {
   queryWorkflowHints,
   type HostServices,
 } from 'cwtools-shared';
+import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 
 export const RESOURCE_URIS = [
@@ -13,10 +15,11 @@ export const RESOURCE_URIS = [
   'cwtools://knowledge/workflow-hints',
   'cwtools://project/profile',
   'cwtools://project/knowledge-manifest',
+  'cwtools://skills/catalog',
 ] as const;
 
-export function listResources() {
-  return [
+export function listResources(host?: HostServices) {
+  const base = [
     {
       uri: 'cwtools://knowledge/game',
       name: 'CWTools game knowledge',
@@ -47,10 +50,57 @@ export function listResources() {
       description: 'Freshness, domains, counts, and fingerprints for the /init-generated semantic knowledge pack.',
       mimeType: 'application/json',
     },
+    {
+      uri: 'cwtools://skills/catalog',
+      name: 'CWTools Paradox skills catalog',
+      description: 'Catalog of workspace and user Paradox modding skills exposed as cwtools://skills/<name> resources.',
+      mimeType: 'application/json',
+    },
   ];
+
+  if (host?.workspaceRoot) {
+    for (const skill of discoverSkills(host.workspaceRoot)) {
+      base.push({
+        uri: `cwtools://skills/${encodeURIComponent(skill.name)}`,
+        name: `Paradox Skill: ${skill.name}`,
+        description: skill.description || `Paradox modding skill ${skill.name}`,
+        mimeType: 'text/markdown',
+      });
+    }
+  }
+
+  return base;
 }
 
 export async function readResource(host: HostServices, uri: string) {
+  if (uri.startsWith('cwtools://skills/') && uri !== 'cwtools://skills/catalog') {
+    const skillName = decodeURIComponent(uri.slice('cwtools://skills/'.length));
+    const found = discoverSkills(host.workspaceRoot).find(entry => entry.name === skillName);
+    if (found && fs.existsSync(found.filePath)) {
+      return {
+        contents: [
+          {
+            uri,
+            mimeType: 'text/markdown',
+            text: `${fs.readFileSync(found.filePath, 'utf8').trim()}\n`,
+          },
+        ],
+      };
+    }
+    return {
+      contents: [
+        {
+          uri,
+          mimeType: 'application/json',
+          text: `${JSON.stringify({
+            status: 'error',
+            error: { code: 'skill_not_found', message: `Unknown CWTools skill: ${skillName}` },
+          }, null, 2)}\n`,
+        },
+      ],
+    };
+  }
+
   const data = await readResourceData(host, uri);
   return {
     contents: [
@@ -61,6 +111,59 @@ export async function readResource(host: HostServices, uri: string) {
       },
     ],
   };
+}
+
+interface DiscoveredSkill {
+  name: string;
+  description: string;
+  source: 'project' | 'user';
+  filePath: string;
+}
+
+function discoverSkills(workspaceRoot: string): DiscoveredSkill[] {
+  const roots: Array<{ dir: string; source: 'project' | 'user' }> = [];
+  if (workspaceRoot) {
+    roots.push({ dir: path.join(workspaceRoot, '.agents', 'skills'), source: 'project' });
+    roots.push({ dir: path.join(workspaceRoot, '.cwtools', 'skills'), source: 'project' });
+  }
+  const home = os.homedir();
+  if (home) {
+    roots.push({ dir: path.join(home, '.cwtools', 'skills'), source: 'user' });
+  }
+
+  const byName = new Map<string, DiscoveredSkill>();
+  for (const root of roots) {
+    if (!fs.existsSync(root.dir)) continue;
+    let entries: fs.Dirent[] = [];
+    try {
+      entries = fs.readdirSync(root.dir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const skillFile = path.join(root.dir, entry.name, 'SKILL.md');
+      if (!fs.existsSync(skillFile)) continue;
+      let raw = '';
+      try {
+        raw = fs.readFileSync(skillFile, 'utf8');
+      } catch {
+        continue;
+      }
+      const descMatch = raw.match(/^description\s*:\s*(.+)$/m);
+      const description = descMatch ? descMatch[1]!.trim().replace(/^['"]|['"]$/g, '') : `Paradox skill ${entry.name}`;
+      if (!byName.has(entry.name)) {
+        byName.set(entry.name, {
+          name: entry.name,
+          description,
+          source: root.source,
+          filePath: skillFile,
+        });
+      }
+    }
+  }
+
+  return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
 async function readResourceData(host: HostServices, uri: string): Promise<unknown> {
@@ -106,6 +209,19 @@ async function readResourceData(host: HostServices, uri: string): Promise<unknow
             manifestPath,
             _hint: 'Run /init in the VS Code extension and wait for the deep semantic phase.',
           };
+    }
+    case 'cwtools://skills/catalog': {
+      const skills = discoverSkills(host.workspaceRoot);
+      return {
+        status: 'ready',
+        count: skills.length,
+        skills: skills.map(skill => ({
+          name: skill.name,
+          description: skill.description,
+          source: skill.source,
+          uri: `cwtools://skills/${encodeURIComponent(skill.name)}`,
+        })),
+      };
     }
     default:
       return {

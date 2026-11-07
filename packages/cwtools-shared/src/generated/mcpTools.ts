@@ -1573,5 +1573,2798 @@ export const GENERATED_MCP_TOOLS = [
       "riskLevel": 0,
       "concurrencyClass": "lsp-limited"
     }
+  },
+  {
+    "tool": {
+      "name": "get_ide_context",
+      "description": "Read the active VS Code IDE state: the active text editor file, languageId, cursor position, selection range/text, open dirty buffers, active diagnostics on the current file, and currently open CWTools visual editor panels (GUI Preview, Entity Preview, Particle Preview, Solar System Preview, Tech Tree, Event Chain, Targeting Weight).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "includeSelectionText": {
+            "type": "boolean",
+            "description": "Whether to include the selected text in the active editor (bounded to 4000 chars). Defaults to true."
+          },
+          "includeActiveFileDiagnostics": {
+            "type": "boolean",
+            "description": "Whether to include current diagnostics for the active editor file. Defaults to true."
+          }
+        },
+        "required": []
+      }
+    },
+    "registry": {
+      "name": "get_ide_context",
+      "isWrite": false,
+      "isReadOnly": true,
+      "effect": "workspace_read",
+      "riskLevel": 0,
+      "concurrencyClass": "parallel"
+    }
+  },
+  {
+    "tool": {
+      "name": "open_in_visual_editor",
+      "description": "Open or refresh a Paradox file in the appropriate CWTools VS Code visual editor panel (gui -> GUI Preview, entity -> 3D Entity Preview, particle -> Particle Preview, solar_system -> Solar System Preview, tech_tree -> Tech Tree Visualizer, event_chain -> Event Chain Visualizer, target_weight -> Targeting Weight Analyzer, auto -> infer from file path/extension) and return the parsed structural summary of the opened view.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "Workspace-relative or absolute path to the file to open/preview. Optional for tech_tree, event_chain, or target_weight when using the active editor."
+          },
+          "editor": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "gui",
+              "entity",
+              "particle",
+              "solar_system",
+              "tech_tree",
+              "event_chain",
+              "target_weight"
+            ],
+            "description": "Visual editor to open. Defaults to auto (inferred from file extension and directory)."
+          },
+          "line": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Optional 1-based line number to focus (used by event_chain or target_weight cursor seeding)."
+          }
+        },
+        "required": []
+      }
+    },
+    "registry": {
+      "name": "open_in_visual_editor",
+      "isWrite": false,
+      "isReadOnly": true,
+      "effect": "workspace_read",
+      "riskLevel": 0,
+      "concurrencyClass": "parallel"
+    }
+  },
+  {
+    "tool": {
+      "name": "write_localisation",
+      "description": "MANDATORY for all .yml localisation file operations. Safely write PDXScript localisation entries. filePath MUST be a real localisation path under localisation/ or localization/; never write localisation YAML into .cwtools scratch/topic folders. This tool handles BOM encoding, key formatting, and correct insertion/update automatically. For new files, creates them with proper BOM + language header. For existing files, appends new keys and updates existing ones by exact key match. NEVER use edit_file, replace_lines, or write_file for .yml localisation files - ALWAYS use this tool instead.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Path to the real .yml localisation file (absolute or relative to workspace), under localisation/ or localization/. Do not use .cwtools paths."
+          },
+          "language": {
+            "type": "string",
+            "description": "Language header, e.g. \"l_english\", \"l_simp_chinese\", \"l_braz_por\". Used when creating a new file."
+          },
+          "languages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Optional explicit multi-file transaction: write the same entries into each sibling language file (same directory + filename stem with the language tag). All targets are validated first; if any target is invalid the whole transaction is rejected with no partial writes."
+          },
+          "entries": {
+            "type": "array",
+            "description": "List of localisation key-value pairs to write",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "description": "Localisation key, e.g. \"my_event.1.title\""
+                },
+                "value": {
+                  "type": "string",
+                  "description": "Localisation value text. Use \\n for in-game line breaks. Do NOT include surrounding quotes."
+                },
+                "number": {
+                  "type": "integer",
+                  "description": "Version number after the colon (default: 0). Usually 0."
+                },
+                "comment": {
+                  "type": "string",
+                  "description": "Optional section header comment to insert before this entry, e.g. \"### Site 1 Events ###\""
+                }
+              },
+              "required": [
+                "key",
+                "value"
+              ]
+            }
+          }
+        },
+        "required": [
+          "filePath",
+          "language",
+          "entries"
+        ]
+      }
+    },
+    "registry": {
+      "name": "write_localisation",
+      "isWrite": true,
+      "isReadOnly": false,
+      "effect": "workspace_write",
+      "riskLevel": 2,
+      "concurrencyClass": "per-file-write"
+    }
+  },
+  {
+    "tool": {
+      "name": "typed_pdx_write",
+      "description": "Build a bounded typed Stellaris/PDXScript candidate without accepting raw script text. Preview by default; stage stores the candidate in the active candidate transaction.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Absolute workspace .txt file path."
+          },
+          "expectedHash": {
+            "type": "string",
+            "pattern": "^[a-fA-F0-9]{64}$",
+            "description": "Optional SHA-256 of the source content; stale candidates are rejected."
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "preview",
+              "stage"
+            ],
+            "description": "Preview is read-only; stage requires an active candidate transaction."
+          },
+          "transactionId": {
+            "type": "string",
+            "description": "Required when mode=stage."
+          },
+          "operation": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "operation": {
+                    "const": "clone_definition"
+                  },
+                  "source": {
+                    "type": "string"
+                  },
+                  "newSymbol": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_.:@-]*$"
+                  },
+                  "overrides": {
+                    "type": "array",
+                    "maxItems": 64,
+                    "items": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "path": {
+                              "type": "array",
+                              "minItems": 1,
+                              "maxItems": 8,
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "key": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z_][A-Za-z0-9_.:@-]*$"
+                                  },
+                                  "occurrence": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                  }
+                                },
+                                "required": [
+                                  "key",
+                                  "occurrence"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "value": {
+                              "oneOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "kind": {
+                                      "const": "identifier"
+                                    },
+                                    "value": {
+                                      "type": "string",
+                                      "pattern": "^[A-Za-z_][A-Za-z0-9_.:@-]*$"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "value"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "kind": {
+                                      "const": "string"
+                                    },
+                                    "value": {
+                                      "type": "string",
+                                      "maxLength": 4096,
+                                      "pattern": "^[^\u0000-\u001f]*$"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "value"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "kind": {
+                                      "const": "number"
+                                    },
+                                    "value": {
+                                      "type": "number"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "value"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "kind": {
+                                      "const": "boolean"
+                                    },
+                                    "value": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "value"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "kind": {
+                                      "const": "list"
+                                    },
+                                    "values": {
+                                      "type": "array",
+                                      "maxItems": 256,
+                                      "items": {
+                                        "type": "object",
+                                        "description": "Recursive PDX value. The host validates the exact discriminated shape, a maximum depth of 8, and a maximum of 256 nodes.",
+                                        "properties": {
+                                          "kind": {
+                                            "type": "string",
+                                            "enum": [
+                                              "identifier",
+                                              "string",
+                                              "number",
+                                              "boolean",
+                                              "list",
+                                              "block"
+                                            ]
+                                          }
+                                        },
+                                        "required": [
+                                          "kind"
+                                        ],
+                                        "additionalProperties": true
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "values"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "kind": {
+                                      "const": "block"
+                                    },
+                                    "entries": {
+                                      "type": "array",
+                                      "maxItems": 256,
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "key": {
+                                            "type": "string",
+                                            "pattern": "^[A-Za-z_][A-Za-z0-9_.:@-]*$"
+                                          },
+                                          "value": {
+                                            "type": "object",
+                                            "description": "Recursive PDX value. The host validates the exact discriminated shape, a maximum depth of 8, and a maximum of 256 nodes.",
+                                            "properties": {
+                                              "kind": {
+                                                "type": "string",
+                                                "enum": [
+                                                  "identifier",
+                                                  "string",
+                                                  "number",
+                                                  "boolean",
+                                                  "list",
+                                                  "block"
+                                                ]
+                                              }
+                                            },
+                                            "required": [
+                                              "kind"
+                                            ],
+                                            "additionalProperties": true
+                                          }
+                                        },
+                                        "required": [
+                                          "key",
+                                          "value"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "entries"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              ]
+                            },
+                            "action": {
+                              "const": "set"
+                            }
+                          },
+                          "required": [
+                            "action",
+                            "path",
+                            "value"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "path": {
+                              "type": "array",
+                              "minItems": 1,
+                              "maxItems": 8,
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "key": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z_][A-Za-z0-9_.:@-]*$"
+                                  },
+                                  "occurrence": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                  }
+                                },
+                                "required": [
+                                  "key",
+                                  "occurrence"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "action": {
+                              "const": "delete"
+                            }
+                          },
+                          "required": [
+                            "action",
+                            "path"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "path": {
+                              "type": "array",
+                              "minItems": 0,
+                              "maxItems": 8,
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "key": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z_][A-Za-z0-9_.:@-]*$"
+                                  },
+                                  "occurrence": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                  }
+                                },
+                                "required": [
+                                  "key",
+                                  "occurrence"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "entry": {
+                              "type": "object",
+                              "properties": {
+                                "key": {
+                                  "type": "string",
+                                  "pattern": "^[A-Za-z_][A-Za-z0-9_.:@-]*$"
+                                },
+                                "value": {
+                                  "oneOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "const": "identifier"
+                                        },
+                                        "value": {
+                                          "type": "string",
+                                          "pattern": "^[A-Za-z_][A-Za-z0-9_.:@-]*$"
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "value"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "const": "string"
+                                        },
+                                        "value": {
+                                          "type": "string",
+                                          "maxLength": 4096,
+                                          "pattern": "^[^\u0000-\u001f]*$"
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "value"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "const": "number"
+                                        },
+                                        "value": {
+                                          "type": "number"
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "value"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "const": "boolean"
+                                        },
+                                        "value": {
+                                          "type": "boolean"
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "value"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "const": "list"
+                                        },
+                                        "values": {
+                                          "type": "array",
+                                          "maxItems": 256,
+                                          "items": {
+                                            "type": "object",
+                                            "description": "Recursive PDX value. The host validates the exact discriminated shape, a maximum depth of 8, and a maximum of 256 nodes.",
+                                            "properties": {
+                                              "kind": {
+                                                "type": "string",
+                                                "enum": [
+                                                  "identifier",
+                                                  "string",
+                                                  "number",
+                                                  "boolean",
+                                                  "list",
+                                                  "block"
+                                                ]
+                                              }
+                                            },
+                                            "required": [
+                                              "kind"
+                                            ],
+                                            "additionalProperties": true
+                                          }
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "values"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "const": "block"
+                                        },
+                                        "entries": {
+                                          "type": "array",
+                                          "maxItems": 256,
+                                          "items": {
+                                            "type": "object",
+                                            "properties": {
+                                              "key": {
+                                                "type": "string",
+                                                "pattern": "^[A-Za-z_][A-Za-z0-9_.:@-]*$"
+                                              },
+                                              "value": {
+                                                "type": "object",
+                                                "description": "Recursive PDX value. The host validates the exact discriminated shape, a maximum depth of 8, and a maximum of 256 nodes.",
+                                                "properties": {
+                                                  "kind": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                      "identifier",
+                                                      "string",
+                                                      "number",
+                                                      "boolean",
+                                                      "list",
+                                                      "block"
+                                                    ]
+                                                  }
+                                                },
+                                                "required": [
+                                                  "kind"
+                                                ],
+                                                "additionalProperties": true
+                                              }
+                                            },
+                                            "required": [
+                                              "key",
+                                              "value"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "entries"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "key",
+                                "value"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "action": {
+                              "const": "append"
+                            }
+                          },
+                          "required": [
+                            "action",
+                            "path",
+                            "entry"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "operation",
+                  "source",
+                  "newSymbol"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "operation": {
+                    "const": "add_event_call"
+                  },
+                  "target": {
+                    "type": "string"
+                  },
+                  "callType": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_.:@-]*$"
+                  },
+                  "eventId": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_.:@-]*$"
+                  },
+                  "containerPath": {
+                    "type": "array",
+                    "maxItems": 8,
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "days": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "operation",
+                  "target",
+                  "callType",
+                  "eventId"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "operation": {
+                    "const": "add_event_option"
+                  },
+                  "target": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_.:@-]*$"
+                  },
+                  "fields": {
+                    "type": "array",
+                    "maxItems": 256,
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "key": {
+                          "type": "string",
+                          "pattern": "^[A-Za-z_][A-Za-z0-9_.:@-]*$"
+                        },
+                        "value": {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "const": "identifier"
+                                },
+                                "value": {
+                                  "type": "string",
+                                  "pattern": "^[A-Za-z_][A-Za-z0-9_.:@-]*$"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "value"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "const": "string"
+                                },
+                                "value": {
+                                  "type": "string",
+                                  "maxLength": 4096,
+                                  "pattern": "^[^\u0000-\u001f]*$"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "value"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "const": "number"
+                                },
+                                "value": {
+                                  "type": "number"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "value"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "const": "boolean"
+                                },
+                                "value": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "value"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "const": "list"
+                                },
+                                "values": {
+                                  "type": "array",
+                                  "maxItems": 256,
+                                  "items": {
+                                    "type": "object",
+                                    "description": "Recursive PDX value. The host validates the exact discriminated shape, a maximum depth of 8, and a maximum of 256 nodes.",
+                                    "properties": {
+                                      "kind": {
+                                        "type": "string",
+                                        "enum": [
+                                          "identifier",
+                                          "string",
+                                          "number",
+                                          "boolean",
+                                          "list",
+                                          "block"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "kind"
+                                    ],
+                                    "additionalProperties": true
+                                  }
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "values"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "const": "block"
+                                },
+                                "entries": {
+                                  "type": "array",
+                                  "maxItems": 256,
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "key": {
+                                        "type": "string",
+                                        "pattern": "^[A-Za-z_][A-Za-z0-9_.:@-]*$"
+                                      },
+                                      "value": {
+                                        "type": "object",
+                                        "description": "Recursive PDX value. The host validates the exact discriminated shape, a maximum depth of 8, and a maximum of 256 nodes.",
+                                        "properties": {
+                                          "kind": {
+                                            "type": "string",
+                                            "enum": [
+                                              "identifier",
+                                              "string",
+                                              "number",
+                                              "boolean",
+                                              "list",
+                                              "block"
+                                            ]
+                                          }
+                                        },
+                                        "required": [
+                                          "kind"
+                                        ],
+                                        "additionalProperties": true
+                                      }
+                                    },
+                                    "required": [
+                                      "key",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "entries"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "value"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "operation",
+                  "target",
+                  "name"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "operation": {
+                    "const": "append_trigger_condition"
+                  },
+                  "target": {
+                    "type": "string"
+                  },
+                  "condition": {
+                    "type": "object",
+                    "properties": {
+                      "key": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z_][A-Za-z0-9_.:@-]*$"
+                      },
+                      "value": {
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "const": "identifier"
+                              },
+                              "value": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z_][A-Za-z0-9_.:@-]*$"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "value"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "const": "string"
+                              },
+                              "value": {
+                                "type": "string",
+                                "maxLength": 4096,
+                                "pattern": "^[^\u0000-\u001f]*$"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "value"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "const": "number"
+                              },
+                              "value": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "value"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "const": "boolean"
+                              },
+                              "value": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "value"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "const": "list"
+                              },
+                              "values": {
+                                "type": "array",
+                                "maxItems": 256,
+                                "items": {
+                                  "type": "object",
+                                  "description": "Recursive PDX value. The host validates the exact discriminated shape, a maximum depth of 8, and a maximum of 256 nodes.",
+                                  "properties": {
+                                    "kind": {
+                                      "type": "string",
+                                      "enum": [
+                                        "identifier",
+                                        "string",
+                                        "number",
+                                        "boolean",
+                                        "list",
+                                        "block"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "kind"
+                                  ],
+                                  "additionalProperties": true
+                                }
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "values"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "const": "block"
+                              },
+                              "entries": {
+                                "type": "array",
+                                "maxItems": 256,
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "key": {
+                                      "type": "string",
+                                      "pattern": "^[A-Za-z_][A-Za-z0-9_.:@-]*$"
+                                    },
+                                    "value": {
+                                      "type": "object",
+                                      "description": "Recursive PDX value. The host validates the exact discriminated shape, a maximum depth of 8, and a maximum of 256 nodes.",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "enum": [
+                                            "identifier",
+                                            "string",
+                                            "number",
+                                            "boolean",
+                                            "list",
+                                            "block"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "kind"
+                                      ],
+                                      "additionalProperties": true
+                                    }
+                                  },
+                                  "required": [
+                                    "key",
+                                    "value"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "entries"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "key",
+                      "value"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "containerPath": {
+                    "type": "array",
+                    "maxItems": 8,
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "operation",
+                  "target",
+                  "condition"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "operation": {
+                    "const": "instantiate_inline_script"
+                  },
+                  "target": {
+                    "type": "string"
+                  },
+                  "script": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9_.:@/-]+$"
+                  },
+                  "arguments": {
+                    "type": "array",
+                    "maxItems": 256,
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "key": {
+                          "type": "string",
+                          "pattern": "^[A-Za-z_][A-Za-z0-9_.:@-]*$"
+                        },
+                        "value": {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "const": "identifier"
+                                },
+                                "value": {
+                                  "type": "string",
+                                  "pattern": "^[A-Za-z_][A-Za-z0-9_.:@-]*$"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "value"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "const": "string"
+                                },
+                                "value": {
+                                  "type": "string",
+                                  "maxLength": 4096,
+                                  "pattern": "^[^\u0000-\u001f]*$"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "value"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "const": "number"
+                                },
+                                "value": {
+                                  "type": "number"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "value"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "const": "boolean"
+                                },
+                                "value": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "value"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "const": "list"
+                                },
+                                "values": {
+                                  "type": "array",
+                                  "maxItems": 256,
+                                  "items": {
+                                    "type": "object",
+                                    "description": "Recursive PDX value. The host validates the exact discriminated shape, a maximum depth of 8, and a maximum of 256 nodes.",
+                                    "properties": {
+                                      "kind": {
+                                        "type": "string",
+                                        "enum": [
+                                          "identifier",
+                                          "string",
+                                          "number",
+                                          "boolean",
+                                          "list",
+                                          "block"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "kind"
+                                    ],
+                                    "additionalProperties": true
+                                  }
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "values"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "const": "block"
+                                },
+                                "entries": {
+                                  "type": "array",
+                                  "maxItems": 256,
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "key": {
+                                        "type": "string",
+                                        "pattern": "^[A-Za-z_][A-Za-z0-9_.:@-]*$"
+                                      },
+                                      "value": {
+                                        "type": "object",
+                                        "description": "Recursive PDX value. The host validates the exact discriminated shape, a maximum depth of 8, and a maximum of 256 nodes.",
+                                        "properties": {
+                                          "kind": {
+                                            "type": "string",
+                                            "enum": [
+                                              "identifier",
+                                              "string",
+                                              "number",
+                                              "boolean",
+                                              "list",
+                                              "block"
+                                            ]
+                                          }
+                                        },
+                                        "required": [
+                                          "kind"
+                                        ],
+                                        "additionalProperties": true
+                                      }
+                                    },
+                                    "required": [
+                                      "key",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "entries"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "value"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "containerPath": {
+                    "type": "array",
+                    "maxItems": 8,
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "operation",
+                  "target",
+                  "script"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "operation": {
+                    "const": "set_definition_field"
+                  },
+                  "target": {
+                    "type": "string"
+                  },
+                  "path": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 8,
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "key": {
+                          "type": "string",
+                          "pattern": "^[A-Za-z_][A-Za-z0-9_.:@-]*$"
+                        },
+                        "occurrence": {
+                          "type": "integer",
+                          "minimum": 1
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "occurrence"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "value": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "identifier"
+                          },
+                          "value": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z_][A-Za-z0-9_.:@-]*$"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "string"
+                          },
+                          "value": {
+                            "type": "string",
+                            "maxLength": 4096,
+                            "pattern": "^[^\u0000-\u001f]*$"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "number"
+                          },
+                          "value": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "boolean"
+                          },
+                          "value": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "list"
+                          },
+                          "values": {
+                            "type": "array",
+                            "maxItems": 256,
+                            "items": {
+                              "type": "object",
+                              "description": "Recursive PDX value. The host validates the exact discriminated shape, a maximum depth of 8, and a maximum of 256 nodes.",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "identifier",
+                                    "string",
+                                    "number",
+                                    "boolean",
+                                    "list",
+                                    "block"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "kind"
+                              ],
+                              "additionalProperties": true
+                            }
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "values"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "block"
+                          },
+                          "entries": {
+                            "type": "array",
+                            "maxItems": 256,
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "key": {
+                                  "type": "string",
+                                  "pattern": "^[A-Za-z_][A-Za-z0-9_.:@-]*$"
+                                },
+                                "value": {
+                                  "type": "object",
+                                  "description": "Recursive PDX value. The host validates the exact discriminated shape, a maximum depth of 8, and a maximum of 256 nodes.",
+                                  "properties": {
+                                    "kind": {
+                                      "type": "string",
+                                      "enum": [
+                                        "identifier",
+                                        "string",
+                                        "number",
+                                        "boolean",
+                                        "list",
+                                        "block"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "kind"
+                                  ],
+                                  "additionalProperties": true
+                                }
+                              },
+                              "required": [
+                                "key",
+                                "value"
+                              ],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "entries"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "operation",
+                  "target",
+                  "path",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "operation": {
+                    "const": "delete_definition_field"
+                  },
+                  "target": {
+                    "type": "string"
+                  },
+                  "path": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 8,
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "key": {
+                          "type": "string",
+                          "pattern": "^[A-Za-z_][A-Za-z0-9_.:@-]*$"
+                        },
+                        "occurrence": {
+                          "type": "integer",
+                          "minimum": 1
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "occurrence"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "operation",
+                  "target",
+                  "path"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "operation": {
+                    "const": "add_definition_field"
+                  },
+                  "target": {
+                    "type": "string"
+                  },
+                  "path": {
+                    "type": "array",
+                    "minItems": 0,
+                    "maxItems": 8,
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "key": {
+                          "type": "string",
+                          "pattern": "^[A-Za-z_][A-Za-z0-9_.:@-]*$"
+                        },
+                        "occurrence": {
+                          "type": "integer",
+                          "minimum": 1
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "occurrence"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "entry": {
+                    "type": "object",
+                    "properties": {
+                      "key": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z_][A-Za-z0-9_.:@-]*$"
+                      },
+                      "value": {
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "const": "identifier"
+                              },
+                              "value": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z_][A-Za-z0-9_.:@-]*$"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "value"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "const": "string"
+                              },
+                              "value": {
+                                "type": "string",
+                                "maxLength": 4096,
+                                "pattern": "^[^\u0000-\u001f]*$"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "value"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "const": "number"
+                              },
+                              "value": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "value"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "const": "boolean"
+                              },
+                              "value": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "value"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "const": "list"
+                              },
+                              "values": {
+                                "type": "array",
+                                "maxItems": 256,
+                                "items": {
+                                  "type": "object",
+                                  "description": "Recursive PDX value. The host validates the exact discriminated shape, a maximum depth of 8, and a maximum of 256 nodes.",
+                                  "properties": {
+                                    "kind": {
+                                      "type": "string",
+                                      "enum": [
+                                        "identifier",
+                                        "string",
+                                        "number",
+                                        "boolean",
+                                        "list",
+                                        "block"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "kind"
+                                  ],
+                                  "additionalProperties": true
+                                }
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "values"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "const": "block"
+                              },
+                              "entries": {
+                                "type": "array",
+                                "maxItems": 256,
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "key": {
+                                      "type": "string",
+                                      "pattern": "^[A-Za-z_][A-Za-z0-9_.:@-]*$"
+                                    },
+                                    "value": {
+                                      "type": "object",
+                                      "description": "Recursive PDX value. The host validates the exact discriminated shape, a maximum depth of 8, and a maximum of 256 nodes.",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "enum": [
+                                            "identifier",
+                                            "string",
+                                            "number",
+                                            "boolean",
+                                            "list",
+                                            "block"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "kind"
+                                      ],
+                                      "additionalProperties": true
+                                    }
+                                  },
+                                  "required": [
+                                    "key",
+                                    "value"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "entries"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "key",
+                      "value"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "operation",
+                  "target",
+                  "path",
+                  "entry"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "operation": {
+                    "const": "add_scripted_effect_call"
+                  },
+                  "target": {
+                    "type": "string"
+                  },
+                  "script": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_.:@-]*$"
+                  },
+                  "arguments": {
+                    "type": "array",
+                    "maxItems": 256,
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "key": {
+                          "type": "string",
+                          "pattern": "^[A-Za-z_][A-Za-z0-9_.:@-]*$"
+                        },
+                        "value": {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "const": "identifier"
+                                },
+                                "value": {
+                                  "type": "string",
+                                  "pattern": "^[A-Za-z_][A-Za-z0-9_.:@-]*$"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "value"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "const": "string"
+                                },
+                                "value": {
+                                  "type": "string",
+                                  "maxLength": 4096,
+                                  "pattern": "^[^\u0000-\u001f]*$"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "value"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "const": "number"
+                                },
+                                "value": {
+                                  "type": "number"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "value"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "const": "boolean"
+                                },
+                                "value": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "value"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "const": "list"
+                                },
+                                "values": {
+                                  "type": "array",
+                                  "maxItems": 256,
+                                  "items": {
+                                    "type": "object",
+                                    "description": "Recursive PDX value. The host validates the exact discriminated shape, a maximum depth of 8, and a maximum of 256 nodes.",
+                                    "properties": {
+                                      "kind": {
+                                        "type": "string",
+                                        "enum": [
+                                          "identifier",
+                                          "string",
+                                          "number",
+                                          "boolean",
+                                          "list",
+                                          "block"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "kind"
+                                    ],
+                                    "additionalProperties": true
+                                  }
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "values"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "const": "block"
+                                },
+                                "entries": {
+                                  "type": "array",
+                                  "maxItems": 256,
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "key": {
+                                        "type": "string",
+                                        "pattern": "^[A-Za-z_][A-Za-z0-9_.:@-]*$"
+                                      },
+                                      "value": {
+                                        "type": "object",
+                                        "description": "Recursive PDX value. The host validates the exact discriminated shape, a maximum depth of 8, and a maximum of 256 nodes.",
+                                        "properties": {
+                                          "kind": {
+                                            "type": "string",
+                                            "enum": [
+                                              "identifier",
+                                              "string",
+                                              "number",
+                                              "boolean",
+                                              "list",
+                                              "block"
+                                            ]
+                                          }
+                                        },
+                                        "required": [
+                                          "kind"
+                                        ],
+                                        "additionalProperties": true
+                                      }
+                                    },
+                                    "required": [
+                                      "key",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "entries"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "value"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "containerPath": {
+                    "type": "array",
+                    "maxItems": 8,
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "operation",
+                  "target",
+                  "script"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "operation": {
+                    "const": "add_scripted_trigger_call"
+                  },
+                  "target": {
+                    "type": "string"
+                  },
+                  "script": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_.:@-]*$"
+                  },
+                  "arguments": {
+                    "type": "array",
+                    "maxItems": 256,
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "key": {
+                          "type": "string",
+                          "pattern": "^[A-Za-z_][A-Za-z0-9_.:@-]*$"
+                        },
+                        "value": {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "const": "identifier"
+                                },
+                                "value": {
+                                  "type": "string",
+                                  "pattern": "^[A-Za-z_][A-Za-z0-9_.:@-]*$"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "value"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "const": "string"
+                                },
+                                "value": {
+                                  "type": "string",
+                                  "maxLength": 4096,
+                                  "pattern": "^[^\u0000-\u001f]*$"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "value"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "const": "number"
+                                },
+                                "value": {
+                                  "type": "number"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "value"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "const": "boolean"
+                                },
+                                "value": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "value"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "const": "list"
+                                },
+                                "values": {
+                                  "type": "array",
+                                  "maxItems": 256,
+                                  "items": {
+                                    "type": "object",
+                                    "description": "Recursive PDX value. The host validates the exact discriminated shape, a maximum depth of 8, and a maximum of 256 nodes.",
+                                    "properties": {
+                                      "kind": {
+                                        "type": "string",
+                                        "enum": [
+                                          "identifier",
+                                          "string",
+                                          "number",
+                                          "boolean",
+                                          "list",
+                                          "block"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "kind"
+                                    ],
+                                    "additionalProperties": true
+                                  }
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "values"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "const": "block"
+                                },
+                                "entries": {
+                                  "type": "array",
+                                  "maxItems": 256,
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "key": {
+                                        "type": "string",
+                                        "pattern": "^[A-Za-z_][A-Za-z0-9_.:@-]*$"
+                                      },
+                                      "value": {
+                                        "type": "object",
+                                        "description": "Recursive PDX value. The host validates the exact discriminated shape, a maximum depth of 8, and a maximum of 256 nodes.",
+                                        "properties": {
+                                          "kind": {
+                                            "type": "string",
+                                            "enum": [
+                                              "identifier",
+                                              "string",
+                                              "number",
+                                              "boolean",
+                                              "list",
+                                              "block"
+                                            ]
+                                          }
+                                        },
+                                        "required": [
+                                          "kind"
+                                        ],
+                                        "additionalProperties": true
+                                      }
+                                    },
+                                    "required": [
+                                      "key",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "entries"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "value"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "containerPath": {
+                    "type": "array",
+                    "maxItems": 8,
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "operation",
+                  "target",
+                  "script"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "operation": {
+                    "const": "add_on_action_entry"
+                  },
+                  "target": {
+                    "type": "string"
+                  },
+                  "entry": {
+                    "type": "object",
+                    "properties": {
+                      "key": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z_][A-Za-z0-9_.:@-]*$"
+                      },
+                      "value": {
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "const": "identifier"
+                              },
+                              "value": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z_][A-Za-z0-9_.:@-]*$"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "value"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "const": "string"
+                              },
+                              "value": {
+                                "type": "string",
+                                "maxLength": 4096,
+                                "pattern": "^[^\u0000-\u001f]*$"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "value"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "const": "number"
+                              },
+                              "value": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "value"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "const": "boolean"
+                              },
+                              "value": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "value"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "const": "list"
+                              },
+                              "values": {
+                                "type": "array",
+                                "maxItems": 256,
+                                "items": {
+                                  "type": "object",
+                                  "description": "Recursive PDX value. The host validates the exact discriminated shape, a maximum depth of 8, and a maximum of 256 nodes.",
+                                  "properties": {
+                                    "kind": {
+                                      "type": "string",
+                                      "enum": [
+                                        "identifier",
+                                        "string",
+                                        "number",
+                                        "boolean",
+                                        "list",
+                                        "block"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "kind"
+                                  ],
+                                  "additionalProperties": true
+                                }
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "values"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "const": "block"
+                              },
+                              "entries": {
+                                "type": "array",
+                                "maxItems": 256,
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "key": {
+                                      "type": "string",
+                                      "pattern": "^[A-Za-z_][A-Za-z0-9_.:@-]*$"
+                                    },
+                                    "value": {
+                                      "type": "object",
+                                      "description": "Recursive PDX value. The host validates the exact discriminated shape, a maximum depth of 8, and a maximum of 256 nodes.",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "enum": [
+                                            "identifier",
+                                            "string",
+                                            "number",
+                                            "boolean",
+                                            "list",
+                                            "block"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "kind"
+                                      ],
+                                      "additionalProperties": true
+                                    }
+                                  },
+                                  "required": [
+                                    "key",
+                                    "value"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "entries"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "key",
+                      "value"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "operation",
+                  "target",
+                  "entry"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "operation": {
+                    "const": "bind_event_target"
+                  },
+                  "target": {
+                    "type": "string"
+                  },
+                  "eventTarget": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_.:@-]*$"
+                  },
+                  "containerPath": {
+                    "type": "array",
+                    "maxItems": 8,
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "operation",
+                  "target",
+                  "eventTarget"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "operation": {
+                    "const": "clear_event_target"
+                  },
+                  "target": {
+                    "type": "string"
+                  },
+                  "eventTarget": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_.:@-]*$"
+                  },
+                  "containerPath": {
+                    "type": "array",
+                    "maxItems": 8,
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "operation",
+                  "target",
+                  "eventTarget"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "operation": {
+                    "const": "add_variable_transition"
+                  },
+                  "target": {
+                    "type": "string"
+                  },
+                  "transition": {
+                    "type": "string",
+                    "enum": [
+                      "set_variable",
+                      "change_variable",
+                      "multiply_variable",
+                      "divide_variable"
+                    ]
+                  },
+                  "variable": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_.:@-]*$"
+                  },
+                  "value": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "identifier"
+                          },
+                          "value": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z_][A-Za-z0-9_.:@-]*$"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "string"
+                          },
+                          "value": {
+                            "type": "string",
+                            "maxLength": 4096,
+                            "pattern": "^[^\u0000-\u001f]*$"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "number"
+                          },
+                          "value": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "boolean"
+                          },
+                          "value": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "list"
+                          },
+                          "values": {
+                            "type": "array",
+                            "maxItems": 256,
+                            "items": {
+                              "type": "object",
+                              "description": "Recursive PDX value. The host validates the exact discriminated shape, a maximum depth of 8, and a maximum of 256 nodes.",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "identifier",
+                                    "string",
+                                    "number",
+                                    "boolean",
+                                    "list",
+                                    "block"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "kind"
+                              ],
+                              "additionalProperties": true
+                            }
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "values"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "block"
+                          },
+                          "entries": {
+                            "type": "array",
+                            "maxItems": 256,
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "key": {
+                                  "type": "string",
+                                  "pattern": "^[A-Za-z_][A-Za-z0-9_.:@-]*$"
+                                },
+                                "value": {
+                                  "type": "object",
+                                  "description": "Recursive PDX value. The host validates the exact discriminated shape, a maximum depth of 8, and a maximum of 256 nodes.",
+                                  "properties": {
+                                    "kind": {
+                                      "type": "string",
+                                      "enum": [
+                                        "identifier",
+                                        "string",
+                                        "number",
+                                        "boolean",
+                                        "list",
+                                        "block"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "kind"
+                                  ],
+                                  "additionalProperties": true
+                                }
+                              },
+                              "required": [
+                                "key",
+                                "value"
+                              ],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "entries"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "containerPath": {
+                    "type": "array",
+                    "maxItems": 8,
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "operation",
+                  "target",
+                  "transition",
+                  "variable",
+                  "value"
+                ],
+                "additionalProperties": false
+              }
+            ],
+            "description": "One discriminated typed mutation. Raw code/oldString/newString fields are rejected."
+          }
+        },
+        "required": [
+          "filePath",
+          "operation"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "registry": {
+      "name": "typed_pdx_write",
+      "isWrite": true,
+      "isReadOnly": false,
+      "effect": "workspace_write",
+      "riskLevel": 2,
+      "concurrencyClass": "per-file-write"
+    }
+  },
+  {
+    "tool": {
+      "name": "candidate_transaction",
+      "description": "Manage one bounded candidate transaction. begin creates an overlay; validate runs host semantic evidence plus detached LSP parser/catalog validation without writing disk; commit atomically materializes validated candidates and rolls back if fresh diagnostics introduce errors; discard removes candidates.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "begin",
+              "validate",
+              "commit",
+              "discard",
+              "status"
+            ]
+          },
+          "transactionId": {
+            "type": "string",
+            "description": "Required after begin."
+          },
+          "validationPassed": {
+            "type": "boolean",
+            "description": "Optional explicit veto for the exact staged fingerprint. The host always runs detached overlay validation and never trusts this flag as proof."
+          }
+        },
+        "required": [
+          "action"
+        ]
+      }
+    },
+    "registry": {
+      "name": "candidate_transaction",
+      "isWrite": true,
+      "isReadOnly": false,
+      "effect": "workspace_write",
+      "riskLevel": 2,
+      "concurrencyClass": "per-file-write"
+    }
+  },
+  {
+    "tool": {
+      "name": "convert_image_to_dds",
+      "description": "Convert a PNG/JPG/TGA image to DDS format (required by Clausewitz engine for icons, sprites, and textures). Uses ImageMagick. Supports DXT5/BC3, DXT1/BC1, DXT3/BC2, and uncompressed DDS output. Mipmaps are disabled by default. Requires ImageMagick installed and accessible. Custom path can be set via stellarisLanguageServices.ai.imageMagickPath setting.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "sourcePath": {
+            "type": "string",
+            "description": "Absolute path to the source image file (PNG, JPG, or TGA)."
+          },
+          "outputDir": {
+            "type": "string",
+            "description": "Directory to write the converted DDS file to. Can be absolute or relative to workspace root (e.g. \"gfx/interface/icons/\")."
+          },
+          "compression": {
+            "type": "string",
+            "enum": [
+              "dxt5",
+              "dxt1",
+              "dxt3",
+              "none"
+            ],
+            "description": "DDS compression type. \"dxt5\" (default): supports alpha channel, use for most icons. \"dxt1\": no alpha, smaller file size. \"dxt3\": legacy explicit alpha. \"none\": uncompressed."
+          },
+          "generateMipmaps": {
+            "type": "boolean",
+            "description": "Whether to generate mipmaps (default false)."
+          }
+        },
+        "required": [
+          "sourcePath"
+        ]
+      }
+    },
+    "registry": {
+      "name": "convert_image_to_dds",
+      "isWrite": false,
+      "isReadOnly": false,
+      "effect": "media",
+      "riskLevel": 2,
+      "concurrencyClass": "interactive"
+    }
+  },
+  {
+    "tool": {
+      "name": "convert_audio",
+      "description": "Convert audio files between formats (MP3->OGG for BGM/voice, MP3->WAV for UI sound effects). Uses ffmpeg. Clausewitz engine requires .ogg (Vorbis) for music/voice and .wav (16-bit PCM) for UI sounds. Requires ffmpeg installed and accessible. Custom path can be set via stellarisLanguageServices.ai.ffmpegPath setting.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "sourcePath": {
+            "type": "string",
+            "description": "Absolute path to the source audio file."
+          },
+          "outputDir": {
+            "type": "string",
+            "description": "Directory to write the converted file to. Can be absolute or relative to workspace root (e.g. \"sound/vo/\")."
+          },
+          "targetFormat": {
+            "type": "string",
+            "enum": [
+              "ogg",
+              "wav"
+            ],
+            "description": "Target audio format. \"ogg\": Vorbis encoding for BGM and voice lines. \"wav\": 16-bit PCM for UI sound effects."
+          },
+          "sampleRate": {
+            "type": "number",
+            "description": "Output sample rate in Hz (e.g. 44100, 48000). Default: keep original."
+          },
+          "channels": {
+            "type": "number",
+            "description": "Number of audio channels. 1 = mono (recommended for voice/sfx), 2 = stereo (recommended for music). Default: keep original."
+          }
+        },
+        "required": [
+          "sourcePath",
+          "targetFormat"
+        ]
+      }
+    },
+    "registry": {
+      "name": "convert_audio",
+      "isWrite": false,
+      "isReadOnly": false,
+      "effect": "media",
+      "riskLevel": 2,
+      "concurrencyClass": "interactive"
+    }
+  },
+  {
+    "tool": {
+      "name": "deploy_mod_asset",
+      "description": "Copy a generated/converted media asset file to its final location in the mod workspace. Requires user permission. Use this after convert_image_to_dds or convert_audio to place files in the correct game directory (e.g. gfx/interface/icons/, sound/vo/). The retract system can undo this operation.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "sourcePath": {
+            "type": "string",
+            "description": "Absolute path to the source file to deploy."
+          },
+          "targetRelativePath": {
+            "type": "string",
+            "description": "Target path relative to workspace root (e.g. \"gfx/interface/icons/tech/my_tech.dds\" or \"sound/vo/my_voice.ogg\")."
+          },
+          "overwrite": {
+            "type": "boolean",
+            "description": "If true, overwrite existing file at target. Default: false (fails if file exists)."
+          }
+        },
+        "required": [
+          "sourcePath",
+          "targetRelativePath"
+        ]
+      }
+    },
+    "registry": {
+      "name": "deploy_mod_asset",
+      "isWrite": true,
+      "isReadOnly": false,
+      "effect": "media",
+      "riskLevel": 2,
+      "concurrencyClass": "interactive"
+    }
   }
 ] as const satisfies readonly GeneratedMcpTool[];

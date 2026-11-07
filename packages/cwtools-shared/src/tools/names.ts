@@ -1,4 +1,4 @@
-export const MCP_TOOL_NAMES = [
+export const MCP_READONLY_TOOL_NAMES = [
   'query_types',
   'query_rules',
   'query_cwt_schema',
@@ -36,18 +36,32 @@ export const MCP_TOOL_NAMES = [
   'explain_shader_reachability',
   'validate_shader',
   'compare_shader_with_vanilla',
+  'get_ide_context',
+  'open_in_visual_editor',
 ] as const;
 
-export type McpToolName = typeof MCP_TOOL_NAMES[number];
+export const MCP_WRITE_TOOL_NAMES = [
+  'write_localisation',
+  'typed_pdx_write',
+  'candidate_transaction',
+  'convert_image_to_dds',
+  'convert_audio',
+  'deploy_mod_asset',
+] as const;
 
-// The MCP surface is read-only by design: file writes go through the host agent's
-// own environment (Codex / Claude Code), not through this server.
-export const MCP_WRITE_TOOL_NAMES = [] as const satisfies readonly McpToolName[];
+export const MCP_TOOL_NAMES = MCP_READONLY_TOOL_NAMES;
 
-export const MCP_READONLY_TOOL_NAMES = MCP_TOOL_NAMES;
+export const MCP_ALL_TOOL_NAMES = [
+  ...MCP_READONLY_TOOL_NAMES,
+  ...MCP_WRITE_TOOL_NAMES,
+] as const;
 
-export function isMcpToolName(value: string): value is McpToolName {
-  return (MCP_TOOL_NAMES as readonly string[]).includes(value);
+export type McpToolName = typeof MCP_ALL_TOOL_NAMES[number];
+
+export function isMcpToolName(value: string, options?: { includeWrites?: boolean }): value is McpToolName {
+  if ((MCP_READONLY_TOOL_NAMES as readonly string[]).includes(value)) return true;
+  if (options?.includeWrites && (MCP_WRITE_TOOL_NAMES as readonly string[]).includes(value)) return true;
+  return false;
 }
 
 export function isMcpWriteToolName(value: string): value is typeof MCP_WRITE_TOOL_NAMES[number] {

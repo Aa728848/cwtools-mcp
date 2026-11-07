@@ -461,6 +461,25 @@ export const defaultSharedToolDispatcher: SharedToolDispatcher = async (host, na
         'Start the CWTools LSP process and wait for the shader model to load before comparing with vanilla.',
       );
 
+    case 'get_ide_context':
+    case 'open_in_visual_editor':
+      return toolUnavailable(
+        name,
+        `${name} requires the active VS Code extension bridge (default mode without --standalone).`,
+        ['Open the project in VS Code / Cursor / Antigravity with the CWTools extension active and connect via bridge mode.'],
+      );
+
+    case 'typed_pdx_write':
+    case 'candidate_transaction':
+    case 'convert_image_to_dds':
+    case 'convert_audio':
+    case 'deploy_mod_asset':
+      return toolUnavailable(
+        name,
+        `${name} requires the active VS Code extension bridge started with --allow-domain-writes (or --enable-writes).`,
+        ['Connect to the active VS Code extension bridge with --allow-domain-writes enabled.'],
+      );
+
     default:
       return {
         ok: false,

@@ -82,6 +82,7 @@ export function parseCliArgs(argv: string[]): CwtoolsMcpConfig {
         config.port = readPort(readValue(argv, ++index, arg));
         break;
       case '--enable-writes':
+      case '--allow-domain-writes':
         config.enableWrites = true;
         break;
       case '--force-start':
@@ -123,6 +124,8 @@ export function parseCliArgs(argv: string[]): CwtoolsMcpConfig {
           config.stdio = false;
         } else if (arg === '--standalone') {
           config.standalone = true;
+        } else if (arg === '--allow-domain-writes' || arg === '--enable-writes') {
+          config.enableWrites = true;
         } else {
           throw new Error(`Unknown argument: ${arg}\n\n${helpText()}`);
         }

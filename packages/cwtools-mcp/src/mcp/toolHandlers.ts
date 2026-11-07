@@ -30,16 +30,15 @@ export function createToolCallHandler(
   };
 
   return async (name, args = {}) => {
-    // Read-only surface: reject anything outside the registered (read-only) tools,
-    // including any write tool called directly. Writes go through the host agent.
-    if (!isMcpToolName(name)) {
+    const writesEnabled = host.writesEnabled === true && host.readonlyMode === false;
+    if (!isMcpToolName(name, { includeWrites: writesEnabled })) {
       return {
         ok: false,
         status: 'denied',
         source: 'cwtools-mcp',
         error: {
           code: 'tool_not_available',
-          message: `Tool '${name}' is not available: this MCP server is read-only. Perform file writes through your own environment.`,
+          message: `Tool '${name}' is not available: this MCP server is read-only unless started with --allow-domain-writes (or --enable-writes).`,
         },
       };
     }

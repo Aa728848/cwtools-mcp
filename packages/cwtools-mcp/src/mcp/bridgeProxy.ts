@@ -84,9 +84,11 @@ export function createBridgeProxyMcpServer(config: CwtoolsMcpConfig): Server {
 
   server.setRequestHandler(ListToolsRequestSchema, async () => {
     try {
-      return await bridgeRpc<McpListToolsResult>(config, server, 'tools/list', {});
+      return await bridgeRpc<McpListToolsResult>(config, server, 'tools/list', {
+        allowDomainWrites: config.enableWrites,
+      });
     } catch {
-      return { tools: listRegisteredTools() };
+      return { tools: listRegisteredTools({ includeWrites: config.enableWrites }) };
     }
   });
 
@@ -124,6 +126,7 @@ export function createBridgeProxyMcpServer(config: CwtoolsMcpConfig): Server {
       const result = await bridgeRpc<McpCallToolResult>(config, server, 'tools/call', {
         name: request.params.name,
         arguments: args,
+        allowDomainWrites: config.enableWrites,
       });
       return normalizeCallToolResult(result);
     } catch (error) {

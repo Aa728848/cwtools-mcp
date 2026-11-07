@@ -15,7 +15,14 @@ describe('MCP resources contract', () => {
       'cwtools://knowledge/workflow-hints',
       'cwtools://project/profile',
       'cwtools://project/knowledge-manifest',
+      'cwtools://skills/catalog',
     ]);
+  });
+
+  it('reads skills catalog as JSON resource content', async () => {
+    const result = await readResource(createHost(), 'cwtools://skills/catalog');
+    expect(result.contents[0]?.mimeType).to.equal('application/json');
+    expect(result.contents[0]?.text).to.include('"status": "ready"');
   });
 
   it('reads workflow hints as JSON resource content', async () => {
