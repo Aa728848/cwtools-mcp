@@ -24,8 +24,9 @@ import {
 } from 'cwtools-shared';
 import { createLspProcessHost, pathToFileUri, resolveRulesCacheRoot, type LspProcessHost } from './lspProcessHost';
 import type { LspHost as InjectedLspHost } from 'cwtools-shared';
+import { detectGameInstall } from './gameInstall';
 import { detectProjectSupport } from './projectDetect';
-import { readIgnoredDiagnostics, applyDiagnosticIgnoreList } from './projectSettings';
+import { applyDiagnosticIgnoreList, honouredIgnoredDiagnostics } from './projectSettings';
 import { RevalidationCoordinator } from './revalidation';
 import { detectExtensionCacheDir, detectExtensionRulesDir } from './vscodeCache';
 
@@ -45,6 +46,11 @@ export interface CwtoolsNodeHostOptions {
   cachePath?: string;
   // Explicit CWT rules *directory* overriding auto-detection (a .zip is rejected).
   rulesPath?: string;
+  // Diagnostic noise controls: error codes and file names to suppress, plus how
+  // localisation diagnostics are filtered. Vanilla errors are always off.
+  errorIgnoreCodes?: readonly string[];
+  errorIgnoreFiles?: readonly string[];
+  localisationDiagnosticFilter?: 'off' | 'problems' | 'all';
   enableWrites: boolean;
   allowedTools: string[];
   forceStart: boolean;
@@ -52,6 +58,13 @@ export interface CwtoolsNodeHostOptions {
   // Separate from any per-request timeout; omit to use the host default.
   startupTimeoutMs?: number;
   requestTimeoutMs?: number;
+  /**
+   * Apply the workspace's own diagnostic ignore list (`.vscode/settings.json`
+   * `stellarisLanguageServices.ai.ignoredDiagnostics`). Defaults to true for backwards
+   * compatibility; an agent-facing host should pass false, because a workspace can
+   * otherwise hide errors from the model by committing that file.
+   */
+  honorWorkspaceIgnoreList?: boolean;
   /** Reuse an already-running native host instead of spawning another process. */
   lspHost?: InjectedLspHost;
   readyAtMs?: number;
@@ -68,6 +81,10 @@ export function createNodeHostServices(config: CwtoolsNodeHostOptions): HostServ
   const game = support.kind === 'cwt-only'
     ? 'cwt'
     : config.game ?? support.gameId ?? 'paradox';
+  // A caller that leaves the game path empty gets the vanilla data the same way the
+  // VS Code extension does: from the Steam libraries on this machine.
+  const gamePath = config.gamePath
+    ?? (game === 'paradox' || game === 'cwt' ? undefined : detectGameInstall(game));
   const allowlist = config.allowedTools.length > 0
     ? new Set(config.allowedTools)
     : new Set<string>(MCP_WRITE_TOOL_NAMES);
@@ -83,8 +100,11 @@ export function createNodeHostServices(config: CwtoolsNodeHostOptions): HostServ
         serverPath: config.serverPath,
         ...(config.serverArgs === undefined ? {} : { serverArgs: config.serverArgs }),
         cachePath: autoCache,
-        gamePath: game === 'paradox' || game === 'cwt' ? undefined : config.gamePath,
+        gamePath: game === 'paradox' || game === 'cwt' ? undefined : gamePath,
         bundledRulesPath: config.rulesPath,
+        ...(config.errorIgnoreCodes === undefined ? {} : { errorIgnoreCodes: config.errorIgnoreCodes }),
+        ...(config.errorIgnoreFiles === undefined ? {} : { errorIgnoreFiles: config.errorIgnoreFiles }),
+        ...(config.localisationDiagnosticFilter === undefined ? {} : { localisationDiagnosticFilter: config.localisationDiagnosticFilter }),
         ...(config.startupTimeoutMs === undefined ? {} : { startupTimeoutMs: config.startupTimeoutMs }),
         ...(config.requestTimeoutMs === undefined ? {} : { requestTimeoutMs: config.requestTimeoutMs }),
         ...(config.debug === undefined ? {} : { debug: config.debug }),
@@ -107,6 +127,9 @@ export function createNodeHostServices(config: CwtoolsNodeHostOptions): HostServ
   if (enabled && !config.cachePath && autoCache) {
     report(`auto-detected VS Code extension cache at ${autoCache}`);
   }
+  if (enabled && !config.gamePath && gamePath) {
+    report(`auto-detected ${game} install at ${gamePath}`);
+  }
   // Surface the resolved workspace so it's clear which mod is analysed.
   report(`workspace = ${workspaceRoot}${config.workspaceRoot === process.cwd() ? ' (inherited cwd)' : ''}`);
   return {
@@ -124,6 +147,7 @@ export function createNodeHostServices(config: CwtoolsNodeHostOptions): HostServ
     diagnostics: new LspDiagnosticsHost(
       lsp,
       workspaceRoot,
+      config.honorWorkspaceIgnoreList !== false,
       enabled ? new RevalidationCoordinator(lsp, workspaceRoot, () => config.readyAtMs ?? lspProcess?.readyAtMs) : undefined,
     ),
     filesystem,
@@ -148,7 +172,7 @@ export function createNodeHostServices(config: CwtoolsNodeHostOptions): HostServ
     },
     vanillaCache: game === 'cwt'
       ? undefined
-      : probeVanillaCache(workspaceRoot, { game, gamePath: config.gamePath, cachePath: autoCache, workspaceRoot }),
+      : probeVanillaCache(workspaceRoot, { game, gamePath, cachePath: autoCache, workspaceRoot }),
     now: () => Date.now(),
     log: (level, message, data) => {
       if (level === 'debug' && !config.debug) return;
@@ -218,6 +242,7 @@ class LspDiagnosticsHost implements DiagnosticsHost {
   constructor(
     private readonly lsp: LspHost,
     private readonly workspaceRoot: string,
+    private readonly honorWorkspaceIgnoreList: boolean,
     private readonly revalidation?: RevalidationCoordinator,
   ) {}
 
@@ -237,7 +262,7 @@ class LspDiagnosticsHost implements DiagnosticsHost {
 
   private applyIgnoreList(result: DiagnosticsQueryResult): DiagnosticsQueryResult {
     if (!result.ok || result.diagnostics.length === 0) return result;
-    return applyDiagnosticIgnoreList(result, readIgnoredDiagnostics(this.workspaceRoot));
+    return applyDiagnosticIgnoreList(result, honouredIgnoredDiagnostics(this.workspaceRoot, this.honorWorkspaceIgnoreList));
   }
 
   private async queryDiagnostics(

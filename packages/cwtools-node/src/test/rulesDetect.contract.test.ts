@@ -2,6 +2,7 @@ import { expect } from 'chai';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { rulesDirectoryCandidates } from '../hosts/lspProcessHost';
 import { detectExtensionRulesDir } from '../hosts/vscodeCache';
 
 describe('MCP extension rules detection contract', () => {
@@ -53,6 +54,15 @@ describe('MCP extension rules detection contract', () => {
     fs.mkdirSync(config, { recursive: true });
     fs.writeFileSync(path.join(config, 'effects.cwt'), 'x');
     expect(detectExtensionRulesDir(tmp, undefined)).to.equal(undefined);
+  });
+
+  it('prefers the workspace rule checkout over the caller cwd', () => {
+    const workspace = path.join(tmp, 'workspace');
+    const candidates = rulesDirectoryCandidates('stellaris', workspace, '/caller-cwd', '/repo-root');
+    expect(candidates[0]).to.equal(path.join(workspace, 'release', 'rules', 'stellaris', 'config'));
+    expect(candidates).to.include(path.join(workspace, 'submodules', 'cwtools-stellaris-config', 'config'));
+    expect(candidates.indexOf(path.join(workspace, 'submodules', 'cwtools-stellaris-config', 'config')))
+      .to.be.lessThan(candidates.indexOf(path.join('/caller-cwd', 'submodules', 'cwtools-stellaris-config', 'config')));
   });
 
   it('ignores obsolete extension globalStorage rules', () => {

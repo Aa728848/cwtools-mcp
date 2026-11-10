@@ -105,6 +105,18 @@ export function readIgnoredDiagnostics(workspaceRoot: string): string[] {
   return asNonEmptyStringArray(getExtensionSetting(workspaceRoot, 'ai.ignoredDiagnostics'));
 }
 
+/**
+ * Diagnostic substrings a host is allowed to suppress.
+ * The list lives in the workspace (`.vscode/settings.json`), so an agent-facing host treats it as
+ * untrusted content and only applies it when the caller opts in.
+ * @param workspaceRoot - analysed project root.
+ * @param honor - whether workspace-owned ignore lists may take effect.
+ * @returns keys to suppress, or an empty list when the workspace list is not trusted.
+ */
+export function honouredIgnoredDiagnostics(workspaceRoot: string, honor: boolean): string[] {
+  return honor ? readIgnoredDiagnostics(workspaceRoot) : [];
+}
+
 
 const LANG_TAG_MAP: ReadonlyArray<readonly [string, string]> = [
   ['English', 'english'],

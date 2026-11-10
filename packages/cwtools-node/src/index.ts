@@ -1,3 +1,4 @@
+export * from './hosts/gameInstall';
 export * from './hosts/lspProcessHost';
 export * from './hosts/nativeBridgeHttp';
 export * from './hosts/nativeBridgeManifest';

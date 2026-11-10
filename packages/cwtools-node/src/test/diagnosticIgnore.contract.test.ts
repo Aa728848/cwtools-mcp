@@ -3,7 +3,9 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import type { DiagnosticsQueryResult } from 'cwtools-shared';
-import { applyDiagnosticIgnoreList, readIgnoredDiagnostics, resolveLocalisationLanguages } from '../hosts/projectSettings';
+import {
+  applyDiagnosticIgnoreList, honouredIgnoredDiagnostics, readIgnoredDiagnostics, resolveLocalisationLanguages,
+} from '../hosts/projectSettings';
 
 function tmpWorkspace(settings?: string): string {
   const ws = fs.mkdtempSync(path.join(os.tmpdir(), 'cwt-ws-'));
@@ -31,6 +33,13 @@ describe('MCP diagnostic ignore whitelist contract', () => {
   it('reads the nested object form', () => {
     const ws = tmpWorkspace(JSON.stringify({ 'stellarisLanguageServices.ai': { ignoredDiagnostics: ['nested-key'] } }));
     expect(readIgnoredDiagnostics(ws)).to.deep.equal(['nested-key']);
+  });
+
+  it('withholds a workspace-owned list unless the host opts in', () => {
+    const ws = tmpWorkspace(JSON.stringify({ 'stellarisLanguageServices.ai.ignoredDiagnostics': ['CW274'] }));
+    expect(honouredIgnoredDiagnostics(ws, true)).to.deep.equal(['CW274']);
+    // A committed settings file must not be able to hide errors from an agent.
+    expect(honouredIgnoredDiagnostics(ws, false)).to.deep.equal([]);
   });
 
   it('returns [] when no settings file or key is present', () => {

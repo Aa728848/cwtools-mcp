@@ -49,6 +49,11 @@ export interface LspProcessHostOptions {
   // build/locate the vanilla cache (otherwise vanilla data is absent).
   gamePath?: string;
   bundledRulesPath?: string;
+  // Diagnostic noise controls forwarded to the server's `errors` block: error
+  // codes and file names to suppress, and how localisation diagnostics are filtered.
+  errorIgnoreCodes?: readonly string[];
+  errorIgnoreFiles?: readonly string[];
+  localisationDiagnosticFilter?: 'off' | 'problems' | 'all';
 }
 
 // The rules-cache root (also where the server reads/writes <game>.cwb). Kept as a
@@ -264,7 +269,7 @@ export class LspProcessHost implements LspHost {
     const rulesCacheRoot = resolveRulesCacheRoot(this.options);
     const rulesFolder = game === 'paradox' || game === 'cwt'
       ? ''
-      : this.options.bundledRulesPath ?? resolveBundledRulesPath(game, rulesCacheRoot);
+      : this.options.bundledRulesPath ?? resolveBundledRulesPath(game, rulesCacheRoot, this.options.workspaceRoot);
     if (!rulesFolder) {
       process.stderr.write('[cwtools-node] warning: no CWT rules found — install the VS Code extension or pass --rules <dir>; validation will be limited\n');
     }
@@ -320,7 +325,11 @@ export class LspProcessHost implements LspHost {
         cwtools: buildCwtoolsConfiguration(game, this.options.gamePath, rulesFolder ?? '', {
           languages: loc.languages,
           generatedStrings: resolveGeneratedStrings(this.options.workspaceRoot),
-        }, resolveExperimental(this.options.workspaceRoot)),
+        }, resolveExperimental(this.options.workspaceRoot), {
+          ignoreCodes: this.options.errorIgnoreCodes ?? [],
+          ignoreFiles: this.options.errorIgnoreFiles ?? [],
+          localisationFilter: this.options.localisationDiagnosticFilter ?? 'off',
+        }),
       },
     });
     await this.waitForExecuteCommandsReady(Math.min(startupTimeoutMs, 20_000), signal, stale);
@@ -526,12 +535,28 @@ export class LspProcessHost implements LspHost {
   }
 }
 
-function buildCwtoolsConfiguration(
+export interface CwtoolsDiagnosticFilter {
+  ignoreCodes: readonly string[];
+  ignoreFiles: readonly string[];
+  localisationFilter: 'off' | 'problems' | 'all';
+}
+
+/** Build the `cwtools` section of the LSP configuration.
+ * @param game - active game id, which selects the `cache.<game>` entry.
+ * @param gamePath - vanilla install; empty means no vanilla data.
+ * @param rulesFolder - rules directory the server loads.
+ * @param localisation - localisation language profile.
+ * @param experimental - whether incremental scripted-type refresh is on.
+ * @param noise - diagnostic suppression settings forwarded to `errors`.
+ * @returns the settings object sent with `workspace/didChangeConfiguration`.
+ */
+export function buildCwtoolsConfiguration(
   game: string,
   gamePath: string | undefined,
   rulesFolder: string,
   localisation: { languages: string[]; generatedStrings: string },
   experimental: boolean,
+  noise: CwtoolsDiagnosticFilter = { ignoreCodes: [], ignoreFiles: [], localisationFilter: 'off' },
 ): Record<string, unknown> {
   // `cache.<game>` is the vanilla install/data dir (the server reads vanilla data
   // from here and serializes the .cwb cache). Empty string => no vanilla data.
@@ -543,8 +568,9 @@ function buildCwtoolsConfiguration(
     },
     errors: {
       vanilla: false,
-      ignore: [],
-      ignorefiles: [],
+      ignore: [...noise.ignoreCodes],
+      ignorefiles: [...noise.ignoreFiles],
+      localisationFilter: noise.localisationFilter,
     },
     // On by default: enables incremental scripted-type refresh so revalidating a
     // scripted_trigger/effect/value patches the type index fast instead of a full reload.
@@ -609,19 +635,33 @@ export function resolveDefaultServerPath(): string | undefined {
 // installed extension pulled into globalStorage, then a dev checkout. No bundled
 // .zip and no extraction — the only zip-free sources. Returns undefined when none
 // is found (the caller warns; --rules is the explicit override).
-function resolveBundledRulesPath(game: string, cacheDir?: string): string | undefined {
+function resolveBundledRulesPath(game: string, cacheDir?: string, workspaceRoot?: string): string | undefined {
   const extracted = detectExtensionRulesDir(cacheDir, game);
   if (extracted) return extracted;
-  const repoRoot = path.resolve(__dirname, '..', '..', '..', '..');
-  const candidates = [
-    path.join(process.cwd(), 'release', 'rules', game, 'config'),
-    path.join(process.cwd(), 'submodules', `cwtools-${game}-config`, 'config'),
-    game === 'stellaris' ? path.join(process.cwd(), 'submodules', 'cwtools-stellaris-config', 'config') : '',
-    path.join(repoRoot, 'release', 'rules', game, 'config'),
-    path.join(repoRoot, 'submodules', `cwtools-${game}-config`, 'config'),
-    game === 'stellaris' ? path.join(repoRoot, 'submodules', 'cwtools-stellaris-config', 'config') : '',
-  ].filter(Boolean);
-  return candidates.find(candidate => fs.existsSync(candidate));
+  return rulesDirectoryCandidates(game, workspaceRoot).find(candidate => fs.existsSync(candidate));
+}
+
+/**
+ * Rules directories to try when no explicit rules path is configured.
+ * @param game - Paradox game id the rules belong to.
+ * @param workspaceRoot - analysed workspace; its own rule checkouts win over the caller's cwd.
+ * @param cwd - caller working directory, which a hosted plugin process does not control.
+ * @param repoRoot - checkout root derived from this package's location.
+ * @returns candidate directories, most specific first.
+ */
+export function rulesDirectoryCandidates(
+  game: string,
+  workspaceRoot?: string,
+  cwd: string = process.cwd(),
+  repoRoot: string = path.resolve(__dirname, '..', '..', '..', '..'),
+): string[] {
+  const layouts = [
+    (root: string) => path.join(root, 'release', 'rules', game, 'config'),
+    (root: string) => path.join(root, 'submodules', `cwtools-${game}-config`, 'config'),
+    (root: string) => game === 'stellaris' ? path.join(root, 'submodules', 'cwtools-stellaris-config', 'config') : '',
+  ];
+  const roots = [workspaceRoot, cwd, repoRoot].filter((root): root is string => !!root);
+  return roots.flatMap(root => layouts.map(layout => layout(root))).filter(Boolean);
 }
 
 export function pathToFileUri(filePath: string): string {
