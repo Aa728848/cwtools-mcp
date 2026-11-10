@@ -212,12 +212,13 @@ export function applyDiagnosticIgnoreList(
   const kept = result.diagnostics.filter(d => !ignored.some(key => d.message.includes(key)));
   const suppressed = result.diagnostics.length - kept.length;
   if (suppressed === 0) return result;
+  // Suppressed diagnostics stay counted. `totalCount` is the server-side match
+  // count for the requested filter, while this list is only one page of it:
+  // subtracting this page's suppressed entries would make the reported total
+  // depend on `limit` (578 errors reported as 573/538/528 for limits 5/40/50).
   return {
     ...result,
     diagnostics: kept,
     suppressedCount: (result.suppressedCount ?? 0) + suppressed,
-    totalCount: typeof result.totalCount === 'number'
-      ? Math.max(0, result.totalCount - suppressed)
-      : result.totalCount,
   };
 }

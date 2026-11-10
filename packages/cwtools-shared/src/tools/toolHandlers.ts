@@ -35,6 +35,24 @@ export type SharedToolDispatcher = (
   context?: SharedToolContext,
 ) => Promise<SharedToolResult>;
 
+function invalidArguments(message: string): SharedToolResult {
+  return {
+    ok: false,
+    status: 'error',
+    source: 'cwtools-shared',
+    error: { code: 'invalid_arguments', message },
+  };
+}
+
+function errorMessageOf(record: Record<string, unknown>): string {
+  const error = record.error;
+  if (typeof error === 'string' && error.trim()) return error;
+  const nested = asRecord(error);
+  if (typeof nested.message === 'string' && nested.message.trim()) return nested.message;
+  if (typeof record.message === 'string' && record.message.trim()) return record.message;
+  return 'CWTools LSP command reported a failure.';
+}
+
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? value as Record<string, unknown>
@@ -55,9 +73,13 @@ async function executeLspTool(
   const record = asRecord(result);
   const errorRecord = asRecord(record.error);
   const unavailable = record.status === 'unavailable' || errorRecord.code === 'lsp_unavailable';
+  // A command that answered `ok: false` (unknown symbol, unsupported argument) is a
+  // failure, not an empty success: wrapping it in `ok: true` made callers report
+  // "found nothing" for "could not look".
+  const failed = !unavailable && record.ok === false;
   return {
-    ok: !unavailable,
-    status: unavailable ? 'unavailable' : 'ready',
+    ok: !unavailable && !failed,
+    status: unavailable ? 'unavailable' : failed ? 'error' : 'ready',
     source: 'cwtools-lsp',
     data: result,
     error: unavailable
@@ -65,7 +87,12 @@ async function executeLspTool(
           code: String(errorRecord.code ?? 'lsp_unavailable'),
           message: String(errorRecord.message ?? 'LSP command is unavailable.'),
         }
-      : undefined,
+      : failed
+        ? {
+            code: String(errorRecord.code ?? 'lsp_command_failed'),
+            message: errorMessageOf(record),
+          }
+        : undefined,
     nextSteps: unavailable ? [unavailableNextStep] : undefined,
   };
 }
@@ -107,7 +134,13 @@ export const defaultSharedToolDispatcher: SharedToolDispatcher = async (host, na
       };
     }
 
-    case 'explore_pdx_project':
+    case 'explore_pdx_project': {
+      if (args.exact !== undefined && typeof args.exact !== 'boolean') {
+        return invalidArguments('exact must be a boolean; pass the identifier in query.');
+      }
+      if (args.exact === true && (typeof args.query !== 'string' || args.query.trim() === '')) {
+        return invalidArguments('exact requires a non-empty query; omit exact to browse by typeName or file.');
+      }
       return lspTool(
         'cwtools.ai.exploreProject',
         [
@@ -122,6 +155,7 @@ export const defaultSharedToolDispatcher: SharedToolDispatcher = async (host, na
         ],
         'Start the CWTools LSP process and wait for the game model to load before exploring the semantic graph.',
       );
+    }
 
     case 'analyze_pdx_flow': {
       const file = typeof args.file === 'string' ? args.file.trim() : '';
@@ -241,12 +275,22 @@ export const defaultSharedToolDispatcher: SharedToolDispatcher = async (host, na
     case 'get_diagnostics':
       {
         const diagnostics = await host.diagnostics.getDiagnostics(args, signal ? { signal } : undefined);
+        const suppressed = diagnostics.suppressedCount ?? 0;
         return {
           ok: diagnostics.ok,
           status: diagnostics.status === 'unavailable' ? 'unavailable' : diagnostics.status === 'stale' ? 'stale' : diagnostics.status === 'pending' ? 'loading' : 'ready',
           source: 'cwtools-diagnostics',
           data: diagnostics,
           error: diagnostics.error,
+          // An empty page is not an empty project: say so when the workspace ignore
+          // list removed entries, and point at the missing backend when it answered
+          // "unavailable" instead of leaving a bare error behind.
+          warnings: suppressed > 0
+            ? [`${suppressed} diagnostic(s) on this page were hidden by the workspace ignore list (stellarisLanguageServices.ai.ignoredDiagnostics); they still count in totalCount.`]
+            : undefined,
+          nextSteps: diagnostics.ok
+            ? undefined
+            : ['Check that the CWTools backend is running (extension active, or a standalone server), then retry get_diagnostics.'],
         };
       }
 

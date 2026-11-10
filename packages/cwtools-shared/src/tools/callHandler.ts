@@ -31,17 +31,19 @@ export function createToolCallHandler(
   host: HostServices,
   dispatcher: SharedToolDispatcher = defaultSharedToolDispatcher,
 ): SharedToolHandler {
-  // The game stays loaded once ready, so probe readiness only until it flips true.
+  // The game stays loaded once ready, so a successful probe is cached — but only
+  // until a call reports the backend gone. A cached `ready` outliving the LSP is
+  // why degraded calls kept advertising `readiness.ready: true`.
   let ready = false;
-  const probeReadiness = async (context?: ToolCallContext): Promise<LspReadiness | undefined> => {
-    if (ready) return { ready: true };
+  const probeReadiness = async (context?: ToolCallContext, force = false): Promise<LspReadiness | undefined> => {
+    if (ready && !force) return { ready: true };
     try {
       const status = await host.lsp.executeCommand('cwtools.ai.getValidationStatus', [], {
         timeoutMs: 8000,
         ...(context?.signal ? { signal: context.signal } : {}),
       });
       const verdict = parseReadiness(status);
-      if (verdict.ready) ready = true;
+      ready = verdict.ready;
       return verdict;
     } catch (error) {
       // A cancelled probe is not an absent backend: surface the abort instead of
@@ -81,7 +83,10 @@ export function createToolCallHandler(
     // For load-dependent tools, mark results produced before the game is ready as
     // `loading` so clients retry instead of trusting an empty answer.
     if (!LOAD_DEPENDENT_TOOLS.has(name)) return withVanilla;
-    return annotateReadiness(name, withVanilla, await probeReadiness(context));
+    // Re-probe after a transport-shaped failure so a dead backend cannot keep
+    // riding on a cached `ready` from an earlier call.
+    const lostBackend = result.ok === false && result.status === 'unavailable';
+    return annotateReadiness(name, withVanilla, await probeReadiness(context, lostBackend));
   };
 }
 

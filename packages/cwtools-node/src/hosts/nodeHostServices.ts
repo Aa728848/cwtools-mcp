@@ -273,6 +273,19 @@ class LspDiagnosticsHost implements DiagnosticsHost {
     if (file) {
       const resolution = resolveWorkspacePath(this.workspaceRoot, file);
       const filePath = resolution.resolvedPath ?? file;
+      // A symbol name or a path fragment is not a file: report that instead of
+      // answering "stale, no diagnostics", which reads as "nothing found".
+      if (!resolution.ok || !resolution.resolvedPath || !fssync.existsSync(filePath)) {
+        return {
+          ok: false,
+          status: 'unavailable',
+          diagnostics: [],
+          error: {
+            code: 'file_not_found',
+            message: `No file at '${filePath}'. Pass an absolute path or a workspace-relative path; omit 'file' for whole-workspace diagnostics.`,
+          },
+        };
+      }
       const value = await this.lsp.executeCommand<unknown>(
         'cwtools.ai.getDiagnosticsFresh',
         [pathToFileUri(filePath)],
@@ -297,15 +310,18 @@ class LspDiagnosticsHost implements DiagnosticsHost {
     if (raw.ok === false || raw.status === 'unavailable') {
       return unavailableDiagnostics(raw);
     }
+    const freshness = normalizeFreshnessValue(raw.freshness);
     return {
       ok: true,
-      status: 'fresh',
+      status: freshness,
       diagnostics: Array.isArray(raw.diagnostics) ? raw.diagnostics.map(normalizeDiagnosticRecord) : [],
       totalCount: numberOrUndefined(raw.totalCount),
+      errorCount: numberOrUndefined(raw.errorCount),
+      warningCount: numberOrUndefined(raw.warningCount),
       truncated: raw.truncated === true,
       freshness: {
-        value: 'fresh',
-        pendingKinds: [],
+        value: freshness,
+        pendingKinds: asStringArray(raw.pendingGlobalKinds),
         epoch: numberOrUndefined(raw.epoch),
       },
     };
@@ -319,6 +335,12 @@ function pendingDiagnostics(): DiagnosticsQueryResult {
     diagnostics: [],
     freshness: { value: 'pending', pendingKinds: ['game_model'] },
   };
+}
+
+function normalizeFreshnessValue(value: unknown): DiagnosticsQueryResult['status'] {
+  return value === 'fresh' || value === 'pending' || value === 'stale' || value === 'unavailable'
+    ? value
+    : 'fresh';
 }
 
 function normalizeDiagnosticsFresh(raw: Record<string, unknown>): DiagnosticsQueryResult {

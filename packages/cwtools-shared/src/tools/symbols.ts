@@ -299,6 +299,23 @@ export async function queryDefinitionByNameWithHost(
     { timeoutMs: 10_000 },
   );
   if (!isUnavailable(commandResult)) {
+    // The command reports a miss as `{ ok: false, error }`; returning that inside
+    // `ok: true` made "symbol not found" look like a successful definition lookup.
+    const record = commandResult && typeof commandResult === 'object' && !Array.isArray(commandResult)
+      ? commandResult as Record<string, unknown>
+      : {};
+    if (record.ok === false) {
+      const message = typeof record.error === 'string' && record.error.trim()
+        ? record.error
+        : `Symbol '${symbolName}' was not found.`;
+      return {
+        ok: false,
+        status: 'error',
+        source: 'cwtools-lsp-definition',
+        data: commandResult,
+        error: { code: 'definition_not_found', message },
+      };
+    }
     return {
       ok: true,
       status: 'ready',
@@ -380,15 +397,18 @@ export async function queryReferencesWithHost(
   }
 
   const references = await textSearchReferences(host, identifier, args.file, limit);
+  // Lexical hits are partial evidence: they include comments and strings, so the
+  // result must not claim the readiness of semantic reference resolution.
   return {
     ok: true,
-    status: 'ready',
+    status: 'partial',
     source: 'cwtools-text-references',
+    warnings: ['Fallback text references are lexical evidence, not semantic CWTools reference resolution.'],
     data: {
       identifier,
       references,
       total: references.length,
-      _warning: 'Fallback text references are lexical evidence, not semantic CWTools reference resolution.',
+      evidence: 'lexical',
     },
   };
 }

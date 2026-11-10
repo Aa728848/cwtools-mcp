@@ -24,6 +24,9 @@ export interface DiagnosticsQueryResult {
   status: DiagnosticsFreshness;
   diagnostics: DiagnosticRecord[];
   totalCount?: number;
+  /** Whole-workspace error/warning totals, independent of the requested page. */
+  errorCount?: number;
+  warningCount?: number;
   truncated?: boolean;
   suppressedCount?: number;
   freshness?: {

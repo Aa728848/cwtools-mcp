@@ -274,13 +274,13 @@ export const GENERATED_MCP_TOOLS = [
   {
     "tool": {
       "name": "get_diagnostics",
-      "description": "Get errors, warnings, information, and hints from the VS Code Problems diagnostics snapshot, optionally filtered by file and severity. Returns totals and truncation metadata; check truncated before treating the returned list as complete.",
+      "description": "Get errors, warnings, information, and hints from the VS Code Problems diagnostics snapshot, optionally filtered by file and severity. Counts are workspace-wide; diagnostics hidden by the workspace ignore list are reported through suppressedCount and still count in totalCount. Check truncated before treating the returned list as complete.",
       "inputSchema": {
         "type": "object",
         "properties": {
           "file": {
             "type": "string",
-            "description": "Optional: restrict to a specific file path (absolute) or a path substring to match. Leave empty to get all workspace diagnostics."
+            "description": "Optional: restrict to one file, as an absolute path or a workspace-relative path. Leave empty to get all workspace diagnostics."
           },
           "severity": {
             "type": "string",
@@ -291,7 +291,7 @@ export const GENERATED_MCP_TOOLS = [
               "hint",
               "all"
             ],
-            "description": "Filter by severity. Default: \"all\""
+            "description": "Exact severity filter: \"error\" returns only errors. Default: \"all\""
           },
           "limit": {
             "type": "number",
@@ -579,7 +579,7 @@ export const GENERATED_MCP_TOOLS = [
           },
           "exact": {
             "type": "boolean",
-            "description": "Require query to exactly match an entity ID. Default false."
+            "description": "Require query to exactly match an entity ID; needs a non-empty query. Default false."
           },
           "depth": {
             "type": "number",

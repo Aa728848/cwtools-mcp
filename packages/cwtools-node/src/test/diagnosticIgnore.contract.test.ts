@@ -61,7 +61,17 @@ describe('MCP diagnostic ignore whitelist contract', () => {
     const filtered = applyDiagnosticIgnoreList(result, ['CW274', 'unused localisation']);
     expect(filtered.diagnostics.map(d => d.message)).to.deep.equal(['CW123 real problem']);
     expect(filtered.suppressedCount).to.equal(2);
-    expect(filtered.totalCount).to.equal(1);
+    // totalCount is the server-side match count for the whole query, so a page-level
+    // suppression must not rewrite it (that made it depend on the requested limit).
+    expect(filtered.totalCount).to.equal(3);
+  });
+
+  it('keeps totalCount stable when a whole page is suppressed', () => {
+    const page = { ok: true as const, status: 'fresh' as const, totalCount: 578, diagnostics: [diag('CW200 static_modifier missing')] };
+    const filtered = applyDiagnosticIgnoreList(page, ['static_modifier']);
+    expect(filtered.diagnostics).to.deep.equal([]);
+    expect(filtered.suppressedCount).to.equal(1);
+    expect(filtered.totalCount).to.equal(578);
   });
 
   it('leaves the result untouched when nothing matches or the list is empty', () => {

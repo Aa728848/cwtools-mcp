@@ -70,6 +70,16 @@ export function annotateReadiness(
   if (readiness.ready) {
     return { ...result, readiness } as SharedToolResult & { readiness?: LspReadiness };
   }
+  // "Backend is gone" is not "backend is still loading": keep the call's own
+  // failure (or its fallback success) instead of relabelling it `loading`, which
+  // callers would retry forever while the transport stays down.
+  if (readiness.reason === 'lsp_unavailable') {
+    return {
+      ...result,
+      readiness,
+      warnings: [...(result.warnings ?? []), 'CWTools backend is unavailable; this result carries no semantic model evidence.'],
+    } as SharedToolResult & { readiness?: LspReadiness };
+  }
   return {
     ...result,
     ok: true,
