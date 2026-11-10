@@ -5,12 +5,14 @@
   "description": "MCP server exposing CWTools semantic tools and default-on whitelisted domain writes",
   "workspaces": [
     "packages/cwtools-shared",
+    "packages/cwtools-node",
     "packages/cwtools-mcp"
   ],
   "scripts": {
-    "build": "npm run build -w cwtools-mcp",
-    "bundle": "npm run bundle -w cwtools-mcp",
-    "test:contracts": "npm run test:contracts -w cwtools-shared && npm run test:contracts -w cwtools-mcp"
+    "build": "npm run build -w cwtools-shared && npm run build -w cwtools-node && npm run build -w cwtools-mcp",
+    "bundle": "npm run build && npm run bundle -w cwtools-mcp",
+    "build:node": "npm run build -w cwtools-node",
+    "test:contracts": "npm run test:contracts -w cwtools-shared && npm run test:contracts -w cwtools-node && npm run test:contracts -w cwtools-mcp"
   },
   "devDependencies": {
     "@types/chai": "^5.2.2",

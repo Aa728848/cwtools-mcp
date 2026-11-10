@@ -1,5 +1,6 @@
 import * as path from 'path';
 import type { HostServices } from '../host/hostServices';
+import { throwIfAborted } from '../host/lsp';
 import { analyzeDiagnosticKnowledge } from '../knowledge/diagnosticRouting';
 import {
   explainScopeWithHost,
@@ -11,6 +12,7 @@ import { queryProjectProfileWithHost } from '../project/profile';
 import { queryProjectKnowledgeWithHost } from '../project/knowledge';
 import { writeLocalisationWithHost } from '../safety/localisation';
 import { getPdxBlockWithHost } from './pdxBlock';
+import { executeTargetingWeightQuery } from './targetingWeights';
 import { toolUnavailable, type SharedToolResult } from './schema';
 import {
   documentSymbolsWithHost,
@@ -21,10 +23,16 @@ import {
   workspaceSymbolsWithHost,
 } from './symbols';
 
+/** Per-call context threaded from the transport (cancellation, and future knobs). */
+export interface SharedToolContext {
+  signal?: AbortSignal;
+}
+
 export type SharedToolDispatcher = (
   host: HostServices,
   name: string,
   args: Record<string, unknown>,
+  context?: SharedToolContext,
 ) => Promise<SharedToolResult>;
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -38,8 +46,12 @@ async function executeLspTool(
   command: string,
   args: unknown[],
   unavailableNextStep: string,
+  signal?: AbortSignal,
 ): Promise<SharedToolResult> {
-  const result = await host.lsp.executeCommand(command, args);
+  // Cancellation must not be laundered into `unavailable`: the caller asked to
+  // stop, so the abort error propagates untouched.
+  throwIfAborted(signal);
+  const result = await host.lsp.executeCommand(command, args, signal ? { signal } : undefined);
   const record = asRecord(result);
   const errorRecord = asRecord(record.error);
   const unavailable = record.status === 'unavailable' || errorRecord.code === 'lsp_unavailable';
@@ -58,8 +70,12 @@ async function executeLspTool(
   };
 }
 
-export const defaultSharedToolDispatcher: SharedToolDispatcher = async (host, name, rawArgs) => {
+export const defaultSharedToolDispatcher: SharedToolDispatcher = async (host, name, rawArgs, context) => {
   const args = asRecord(rawArgs);
+  const signal = context?.signal;
+  const lspTool = (command: string, args: unknown[], unavailableNextStep: string) =>
+    executeLspTool(host, command, args, unavailableNextStep, signal);
+  throwIfAborted(signal);
   switch (name) {
     case 'query_project_profile':
       return queryProjectProfileWithHost(host, args);
@@ -92,8 +108,7 @@ export const defaultSharedToolDispatcher: SharedToolDispatcher = async (host, na
     }
 
     case 'explore_pdx_project':
-      return executeLspTool(
-        host,
+      return lspTool(
         'cwtools.ai.exploreProject',
         [
           typeof args.query === 'string' ? args.query : '',
@@ -122,8 +137,7 @@ export const defaultSharedToolDispatcher: SharedToolDispatcher = async (host, na
           },
         };
       }
-      return executeLspTool(
-        host,
+      return lspTool(
         'cwtools.ai.analyzePdxFlow',
         [{
           ...(file ? { file } : {}),
@@ -147,8 +161,7 @@ export const defaultSharedToolDispatcher: SharedToolDispatcher = async (host, na
           },
         };
       }
-      return executeLspTool(
-        host,
+      return lspTool(
         'cwtools.ai.compareDefinitionWithVanilla',
         [args.entityType.trim(), args.symbolId.trim()],
         'Start the CWTools LSP process and wait for the game model to load before comparing the definition with vanilla.',
@@ -169,8 +182,7 @@ export const defaultSharedToolDispatcher: SharedToolDispatcher = async (host, na
           },
         };
       }
-      return executeLspTool(
-        host,
+      return lspTool(
         'cwtools.ai.exploreInlineGraph',
         [{
           ...(template ? { template } : {}),
@@ -182,6 +194,22 @@ export const defaultSharedToolDispatcher: SharedToolDispatcher = async (host, na
       );
     }
 
+    case 'query_targeting_weight': {
+      // Pure computation: no host, no I/O, and no backend to wait for. The shared
+      // implementation is the single source of truth for the formula, so the MCP
+      // surface, the in-extension agent and the panel produce identical numbers
+      // for the same inputs.
+      const data = executeTargetingWeightQuery(args);
+      const failure = typeof data.error === 'string' ? data.error : undefined;
+      return {
+        ok: failure === undefined,
+        status: failure === undefined ? 'ready' : 'error',
+        source: 'cwtools-shared',
+        data,
+        error: failure === undefined ? undefined : { code: 'invalid_arguments', message: failure },
+      };
+    }
+
     case 'query_localisation_index': {
       if (!host.indexing) {
         return toolUnavailable(name, 'Localisation index is not available in this host.', [
@@ -190,8 +218,7 @@ export const defaultSharedToolDispatcher: SharedToolDispatcher = async (host, na
       }
       const data = await host.indexing.queryLocalisation(args);
       const semanticAudit = args.auditMode === true
-        ? await executeLspTool(
-            host,
+        ? await lspTool(
             'cwtools.ai.queryLocalisationAudit',
             [{
               ...(typeof args.key === 'string' ? { key: args.key } : {}),
@@ -213,7 +240,7 @@ export const defaultSharedToolDispatcher: SharedToolDispatcher = async (host, na
 
     case 'get_diagnostics':
       {
-        const diagnostics = await host.diagnostics.getDiagnostics(args);
+        const diagnostics = await host.diagnostics.getDiagnostics(args, signal ? { signal } : undefined);
         return {
           ok: diagnostics.ok,
           status: diagnostics.status === 'unavailable' ? 'unavailable' : diagnostics.status === 'stale' ? 'stale' : diagnostics.status === 'pending' ? 'loading' : 'ready',
@@ -279,16 +306,14 @@ export const defaultSharedToolDispatcher: SharedToolDispatcher = async (host, na
       });
 
     case 'query_scope':
-      return executeLspTool(
-        host,
+      return lspTool(
         'cwtools.ai.getScopeAtPosition',
         [toFileUri(String(args.file ?? ''), host.workspaceRoot), args.line, args.column],
         'Start the CWTools LSP process or connect this host to an existing language server.',
       );
 
     case 'query_types':
-      return executeLspTool(
-        host,
+      return lspTool(
         'cwtools.ai.queryTypes',
         [args.typeName, args.filter ?? '', args.limit ?? 30, args.vanilla === true],
         'Start the CWTools LSP process or connect this host to an existing language server.',
@@ -326,56 +351,49 @@ export const defaultSharedToolDispatcher: SharedToolDispatcher = async (host, na
       });
 
     case 'parse_pdx_fragment':
-      return executeLspTool(
-        host,
+      return lspTool(
         'cwtools.ai.parseFragment',
         [String(args.code ?? '')],
         'Start the CWTools LSP process or connect this host to an existing language server.',
       );
 
     case 'query_scripted_effects':
-      return executeLspTool(
-        host,
+      return lspTool(
         'cwtools.ai.queryScriptedEffects',
         [args.filter ?? '', args.limit ?? 50],
         'Start the CWTools LSP process or connect this host to an existing language server.',
       );
 
     case 'query_scripted_triggers':
-      return executeLspTool(
-        host,
+      return lspTool(
         'cwtools.ai.queryScriptedTriggers',
         [args.filter ?? '', args.limit ?? 50],
         'Start the CWTools LSP process or connect this host to an existing language server.',
       );
 
     case 'query_enums':
-      return executeLspTool(
-        host,
+      return lspTool(
         'cwtools.ai.queryEnums',
         [args.enumName ?? '', args.limit ?? 500],
         'Start the CWTools LSP process or connect this host to an existing language server.',
       );
 
     case 'query_static_modifiers':
-      return executeLspTool(
-        host,
+      return lspTool(
         'cwtools.ai.queryStaticModifiers',
         [args.filter ?? '', args.limit ?? 300],
         'Start the CWTools LSP process or connect this host to an existing language server.',
       );
 
     case 'query_variables':
-      return executeLspTool(
-        host,
+      return lspTool(
         'cwtools.ai.queryVariables',
         [args.filter ?? ''],
         'Start the CWTools LSP process or connect this host to an existing language server.',
       );
 
     case 'get_entity_info':
-      return executeLspTool(
-        host,
+      return lspTool(
         'cwtools.ai.getEntityInfo',
         [toFileUri(String(args.file ?? ''), host.workspaceRoot)],
         'Start the CWTools LSP process or connect this host to an existing language server.',
@@ -390,8 +408,7 @@ export const defaultSharedToolDispatcher: SharedToolDispatcher = async (host, na
     // Shader knowledge tools: each LSP command takes a single JSON record
     // argument and returns { ok, ... } / { ok: false, status: 'error', ... }.
     case 'query_shader_symbol':
-      return executeLspTool(
-        host,
+      return lspTool(
         'cwtools.ai.shader.symbols',
         [shaderRecord({
           filter: typeof args.filter === 'string' ? args.filter : undefined,
@@ -403,24 +420,21 @@ export const defaultSharedToolDispatcher: SharedToolDispatcher = async (host, na
       );
 
     case 'query_shader_compile_unit':
-      return executeLspTool(
-        host,
+      return lspTool(
         'cwtools.ai.shader.compileUnit',
         [{ uri: toFileUri(String(args.file ?? ''), host.workspaceRoot) }],
         'Start the CWTools LSP process and wait for the shader model to load before resolving compile units.',
       );
 
     case 'query_shader_platform_variants':
-      return executeLspTool(
-        host,
+      return lspTool(
         'cwtools.ai.shader.variants',
         [{ uri: toFileUri(String(args.file ?? ''), host.workspaceRoot) }],
         'Start the CWTools LSP process and wait for the shader model to load before comparing shader platform variants.',
       );
 
     case 'query_shader_callers':
-      return executeLspTool(
-        host,
+      return lspTool(
         'cwtools.ai.shader.callers',
         [shaderRecord({
           effectName: String(args.effectName ?? ''),
@@ -430,8 +444,7 @@ export const defaultSharedToolDispatcher: SharedToolDispatcher = async (host, na
       );
 
     case 'explain_shader_reachability':
-      return executeLspTool(
-        host,
+      return lspTool(
         'cwtools.ai.shader.reachability',
         [typeof args.effectName === 'string' && args.effectName
           ? { effectName: args.effectName }
@@ -444,16 +457,14 @@ export const defaultSharedToolDispatcher: SharedToolDispatcher = async (host, na
       );
 
     case 'validate_shader':
-      return executeLspTool(
-        host,
+      return lspTool(
         'cwtools.ai.shader.validate',
         [{ uri: toFileUri(String(args.file ?? ''), host.workspaceRoot) }],
         'Start the CWTools LSP process and wait for the shader model to load before validating shader files.',
       );
 
     case 'compare_shader_with_vanilla':
-      return executeLspTool(
-        host,
+      return lspTool(
         'cwtools.ai.shader.compareVanilla',
         [typeof args.effectName === 'string' && args.effectName
           ? { effectName: args.effectName }

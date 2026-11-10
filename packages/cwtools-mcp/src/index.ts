@@ -1,6 +1,9 @@
+// Compatibility surface: the Node host services moved to `cwtools-node` so a
+// consumer with no MCP dependency can host CWTools in-process. These re-exports
+// keep every previously published deep import working.
+export * from 'cwtools-node';
 export * from './config';
-export * from './hosts/lspProcessHost';
-export * from './hosts/nodeHostServices';
+export * from './mcp/callHandler';
 export * from './mcp/toolHandlers';
 export * from './mcp/toolRegistrar';
 export * from './mcp/resources';

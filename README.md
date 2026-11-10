@@ -54,7 +54,7 @@ For hand-written `~/.codex/config.toml`, `--standalone` / `--rules` / `--cache`
 ```sh
 git submodule update --init   # pulls submodules/cwtools-stellaris-config (CWT rules for tests/dev)
 npm install
-npm run build            # build both packages (cwtools-shared, cwtools-mcp)
+npm run build            # build the packages (cwtools-shared, cwtools-node, cwtools-mcp)
 npm run test:contracts   # contract tests (schema drift, write policy, routing)
 npm run bundle           # single-file dist/cwtools-mcp.cjs via esbuild
 ```
@@ -65,11 +65,32 @@ The MCP tool schema is **generated**, not handwritten: it is produced by
 extension's tool definitions, and committed here under
 `packages/cwtools-shared/src/generated/mcpTools.ts`.
 
+### Packages
+
+Three packages with a strictly one-way dependency graph:
+
+| Package | Contains | Depends on |
+| --- | --- | --- |
+| `cwtools-shared` | Transport-free contracts, generated tool schemas, the transport-neutral tool call handler (`tools/callHandler`), and pure computations such as `tools/targetingWeights` | nothing |
+| `cwtools-node` | Node host services: filesystem, standalone LSP process, native active-host client, revalidation, project detection | `cwtools-shared`, `chokidar`, `vscode-jsonrpc` — never the MCP SDK |
+| `cwtools-mcp` | MCP transport, generated schemas, resources, bridge proxy; re-exports the Node hosts for compatibility | `cwtools-shared`, `cwtools-node`, `@modelcontextprotocol/sdk` |
+
+A host that needs CWTools semantics without an MCP dependency imports `cwtools-node`
+and calls `createToolCallHandler` from `cwtools-shared`. Cancellation is part of the
+contract: every LSP-backed call accepts an `AbortSignal`, and an abort surfaces as an
+`AbortError` instead of an `unavailable` result. A Node host also validates the
+`cwtools.ai.getHostCapabilities` handshake on first start and reports
+`backend_incompatible` (releasing the backend) for an old, malformed or incomplete
+answer. Non-MCP consumers can also inject `NativeBridgeLspHost`: discovery validates the
+native manifest, live process, exact workspace and `/cwtools/healthz`, then calls only
+the separate bearer-authenticated `/cwtools/rpc` API. Unavailable hosts allow standalone
+fallback; incompatible active hosts return `backend_incompatible` without a second process.
+
 ### Publishing
 
-Both packages are published to npm (`cwtools-shared` first, then
-`cwtools-mcp`). Tags (`v*`) trigger a GitHub Release with the single-file
-`cwtools-mcp.cjs` attached.
+All three packages are published to npm (`cwtools-shared` first, then
+`cwtools-node`, then `cwtools-mcp`). Tags (`v*`) trigger a GitHub Release with the
+single-file `cwtools-mcp.cjs` attached.
 
 <a id="zh-cn"></a>
 
@@ -118,7 +139,7 @@ claude mcp add cwtools --scope user -- npx -y cwtools-mcp --stdio
 ```sh
 git submodule update --init   # 拉取 submodules/cwtools-stellaris-config（测试/开发用 CWT 规则）
 npm install
-npm run build            # 构建两个包（cwtools-shared、cwtools-mcp）
+npm run build            # 构建三个包（cwtools-shared、cwtools-node、cwtools-mcp）
 npm run test:contracts   # 合约测试（schema 漂移、写入策略、路由）
 npm run bundle           # esbuild 产出单文件 dist/cwtools-mcp.cjs
 ```
@@ -128,7 +149,26 @@ MCP 工具 schema 为**生成物**，不手写：由
 `tools/generate-mcp-schema.cjs` 从扩展工具定义生成，提交在本仓库
 `packages/cwtools-shared/src/generated/mcpTools.ts`。
 
+### 包结构
+
+三个包，依赖关系严格单向：
+
+| 包 | 内容 | 依赖 |
+| --- | --- | --- |
+| `cwtools-shared` | 与传输无关的契约、生成的工具 schema、传输无关的工具调用处理器（`tools/callHandler`）、以及 `tools/targetingWeights` 这类纯计算 | 无 |
+| `cwtools-node` | Node 宿主服务：文件系统、独立 LSP 进程、原生活跃宿主客户端、复验、项目探测 | `cwtools-shared`、`chokidar`、`vscode-jsonrpc`——绝不依赖 MCP SDK |
+| `cwtools-mcp` | MCP 传输、生成 schema、资源、桥接代理；为兼容而重新导出 Node 宿主 | `cwtools-shared`、`cwtools-node`、`@modelcontextprotocol/sdk` |
+
+需要 CWTools 语义但不想引入 MCP 依赖的宿主，导入 `cwtools-node`，并从 `cwtools-shared` 取
+`createToolCallHandler`。取消是契约的一部分：每个走 LSP 的调用都接受 `AbortSignal`，中止会以
+`AbortError` 抛出而不是变成 `unavailable` 结果。Node 宿主在首次启动时还会校验
+`cwtools.ai.getHostCapabilities` 握手，对旧的、畸形的或不完整的响应报
+`backend_incompatible` 并释放后端。非 MCP 消费者还可注入 `NativeBridgeLspHost`：发现阶段校验
+原生清单、活进程、精确工作区与 `/cwtools/healthz`，随后只调用独立的 bearer 认证
+`/cwtools/rpc` API。不可用宿主允许独立回退；活跃宿主不兼容则返回
+`backend_incompatible`，不会创建第二个进程。
+
 ### 发布
 
-两个包都发布到 npm（先 `cwtools-shared`，再 `cwtools-mcp`）。打 `v*` 标签会
+三个包都发布到 npm（先 `cwtools-shared`，再 `cwtools-node`，最后 `cwtools-mcp`）。打 `v*` 标签会
 触发 GitHub Release 并附带单文件 `cwtools-mcp.cjs`。

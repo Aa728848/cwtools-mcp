@@ -39,8 +39,16 @@ export interface DiagnosticsQueryResult {
   };
 }
 
+/** Per-call context for a diagnostics query. `signal` cancels the backend work. */
+export interface DiagnosticsQueryContext {
+  signal?: AbortSignal;
+}
+
 export interface DiagnosticsHost {
-  getDiagnostics(filter?: DiagnosticsFilter): Promise<DiagnosticsQueryResult>;
+  getDiagnostics(
+    filter?: DiagnosticsFilter,
+    context?: DiagnosticsQueryContext,
+  ): Promise<DiagnosticsQueryResult>;
 }
 
 export function createUnavailableDiagnosticsHost(message = 'Diagnostics are not available without an LSP connection.'): DiagnosticsHost {

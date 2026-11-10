@@ -2,23 +2,30 @@ import { expect } from 'chai';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { parseCliArgs } from '../config';
-import { createNodeHostServices } from '../hosts/nodeHostServices';
-import { listServerTools } from '../server';
+import { createNodeHostServices, type CwtoolsNodeHostOptions } from '../hosts/nodeHostServices';
 
 function tempRoot(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'cwt-runtime-detect-'));
 }
 
-describe('standalone project runtime contract', () => {
+function options(workspaceRoot: string, overrides: Partial<CwtoolsNodeHostOptions> = {}): CwtoolsNodeHostOptions {
+  return {
+    workspaceRoot,
+    enableWrites: true,
+    allowedTools: [],
+    forceStart: false,
+    ...overrides,
+  };
+}
+
+describe('node host runtime contract', () => {
   it('keeps unsupported projects on the unavailable host without spawning LSP', async () => {
     const root = tempRoot();
     fs.mkdirSync(path.join(root, 'common'));
-    const host = createNodeHostServices(parseCliArgs(['--standalone', '--workspace', root]));
+    const host = createNodeHostServices(options(root));
     try {
       expect(host.projectSupported).to.equal(false);
       expect(host.projectKind).to.equal('unsupported');
-      expect(listServerTools(host)).to.deep.equal([]);
       const result = await host.lsp.executeCommand<{ status: string }>('cwtools.ai.getValidationStatus');
       expect(result.status).to.equal('unavailable');
     } finally {
@@ -29,7 +36,7 @@ describe('standalone project runtime contract', () => {
   it('uses generic Paradox mode instead of implicit Stellaris when the game is unknown', () => {
     const root = tempRoot();
     fs.writeFileSync(path.join(root, 'descriptor.mod'), 'name="Unknown game mod"');
-    const host = createNodeHostServices(parseCliArgs(['--standalone', '--workspace', root]));
+    const host = createNodeHostServices(options(root));
     try {
       expect(host.projectSupported).to.equal(true);
       expect(host.projectKind).to.equal('mod');
@@ -51,11 +58,10 @@ describe('standalone project runtime contract', () => {
       fs.mkdirSync(path.dirname(file), { recursive: true });
       fs.writeFileSync(file, '### rule');
     }
-    const host = createNodeHostServices(parseCliArgs(['--standalone', '--workspace', root, '--game', 'stellaris']));
+    const host = createNodeHostServices(options(root, { game: 'stellaris' }));
     try {
       expect(host.projectKind).to.equal('cwt-only');
       expect(host.projectGameId).to.equal('cwt');
-      expect(listServerTools(host).map(tool => tool.name)).to.have.length(7);
       expect(host.vanillaCache).to.equal(undefined);
     } finally {
       host.dispose?.();
@@ -67,11 +73,31 @@ describe('standalone project runtime contract', () => {
     const mod = path.join(root, 'only-mod');
     fs.mkdirSync(mod);
     fs.writeFileSync(path.join(mod, 'descriptor.mod'), '');
-    const host = createNodeHostServices(parseCliArgs(['--standalone', '--workspace', root]));
+    const host = createNodeHostServices(options(root));
     try {
       expect(host.workspaceRoot).to.equal(mod);
     } finally {
       host.dispose?.();
+    }
+  });
+
+  it('force-start keeps an unsupported workspace enabled without inventing a game id', () => {
+    const root = tempRoot();
+    fs.mkdirSync(path.join(root, 'common'));
+    const host = createNodeHostServices(options(root, { forceStart: true }));
+    try {
+      expect(host.projectSupported).to.equal(true);
+      expect(host.projectKind).to.equal('mod');
+      expect(host.projectGameId).to.equal('paradox');
+    } finally {
+      host.dispose?.();
+    }
+  });
+
+  it('accepts only the transport-agnostic option set (no stdio/http fields)', () => {
+    const optionsRecord: CwtoolsNodeHostOptions = options(process.cwd());
+    for (const forbidden of ['stdio', 'http', 'host', 'port', 'standalone', 'bridgeManifestPath', 'workspaceRootExplicit']) {
+      expect(Object.keys(optionsRecord)).to.not.include(forbidden);
     }
   });
 });

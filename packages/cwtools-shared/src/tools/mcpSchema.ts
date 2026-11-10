@@ -24,6 +24,27 @@ export function isMcpToolAvailable(
   return GENERATED_MCP_TOOLS.find(entry => entry.tool.name === value)?.registry.mcpSupportsCwtOnly === true;
 }
 
+/**
+ * Transport-neutral aliases.
+ *
+ * The schema surface is consumed by hosts that have nothing to do with MCP (the
+ * Node host, an editor integration, an external agent runtime). Those callers ask
+ * for "CWTools tools", not "MCP tools", so the neutral names are the preferred
+ * spelling and the MCP-prefixed functions above remain for compatibility.
+ */
+export const listCwtoolsToolSchemas = listMcpToolSchemas;
+
+export function isCwtoolsToolAvailable(
+  value: string,
+  options?: { includeWrites?: boolean; cwtOnly?: boolean },
+): value is McpToolName {
+  return isMcpToolAvailable(value, options);
+}
+
+export function getCwtoolsToolSchema(name: string): McpToolSchema | undefined {
+  return getMcpToolSchema(name);
+}
+
 export function getMcpToolSchema(name: string): McpToolSchema | undefined {
   return GENERATED_MCP_TOOLS.find(entry => entry.tool.name === name)?.tool;
 }
