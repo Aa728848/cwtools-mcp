@@ -165,9 +165,11 @@ export class LspProcessHost implements LspHost {
     }
 
     const rootUri = pathToFileUri(this.options.workspaceRoot);
-    const game = this.options.game ?? 'stellaris';
+    const game = this.options.game ?? 'paradox';
     const rulesCacheRoot = resolveRulesCacheRoot(this.options);
-    const rulesFolder = this.options.bundledRulesPath ?? resolveBundledRulesPath(game, rulesCacheRoot);
+    const rulesFolder = game === 'paradox' || game === 'cwt'
+      ? ''
+      : this.options.bundledRulesPath ?? resolveBundledRulesPath(game, rulesCacheRoot);
     if (!rulesFolder) {
       process.stderr.write('[cwtools-mcp] warning: no CWT rules found — install the VS Code extension or pass --rules <dir>; validation will be limited\n');
     }

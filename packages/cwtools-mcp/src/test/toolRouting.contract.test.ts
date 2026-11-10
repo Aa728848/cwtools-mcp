@@ -29,6 +29,14 @@ describe('MCP tool routing contract', () => {
     ]);
   });
 
+  it('marks generic-mode results instead of implying a selected game', async () => {
+    const host = createTestHost();
+    host.projectGameId = 'paradox';
+    const dispatcher: SharedToolDispatcher = async () => ({ ok: true, status: 'ready', source: 'test' });
+    const result = await createToolCallHandler(host, dispatcher)('query_types', { typeName: 'unknown' });
+    expect(result.warnings?.join('\n')).to.include('Generic Paradox mode');
+  });
+
   it('formats stable JSON text results for MCP callTool responses', () => {
     const response = toMcpCallToolResult({
       ok: false,

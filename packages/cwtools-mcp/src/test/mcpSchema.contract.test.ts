@@ -1,11 +1,11 @@
 import { expect } from 'chai';
-import { MCP_TOOL_NAMES } from 'cwtools-shared';
+import { MCP_ALL_TOOL_NAMES } from 'cwtools-shared';
 import { listRegisteredTools } from '../mcp/toolRegistrar';
 
 describe('MCP tools/list contract', () => {
   it('returns the generated MCP tool schemas', () => {
     const tools = listRegisteredTools();
-    expect(tools.map(tool => tool.name)).to.deep.equal([...MCP_TOOL_NAMES]);
+    expect(tools.map(tool => tool.name)).to.deep.equal([...MCP_ALL_TOOL_NAMES]);
     expect(tools.map(tool => tool.name)).to.include.members([
       'get_completion_at',
       'document_symbols',
@@ -17,5 +17,17 @@ describe('MCP tools/list contract', () => {
       expect(tool.description).to.be.a('string').and.not.equal('');
       expect(tool.inputSchema).to.be.an('object');
     }
+  });
+
+  it('exposes only CWT-capable tools in CWT-only mode', () => {
+    expect(listRegisteredTools({ cwtOnly: true }).map(tool => tool.name)).to.deep.equal([
+      'get_diagnostics',
+      'analyze_diagnostic_error',
+      'get_completion_at',
+      'document_symbols',
+      'workspace_symbols',
+      'go_to_definition',
+      'find_references',
+    ]);
   });
 });

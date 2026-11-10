@@ -12,8 +12,8 @@ import { listResources, readResource } from './mcp/resources';
 
 // Server-level guidance surfaced to the model at connect time (MCP `instructions`).
 // Tells a Paradox coding agent to ground every claim in these tools.
-const SERVER_INSTRUCTIONS = [
-  'CWTools is a read-only semantic service for Paradox mods. Ground every',
+const FULL_SERVER_INSTRUCTIONS = [
+  'CWTools provides semantic and whitelisted domain-write tools for Paradox mods. Ground every',
   'claim about the mod in these tools instead of memory — PDX identifiers and syntax',
   'are routinely hallucinated.',
   '',
@@ -36,9 +36,30 @@ const SERVER_INSTRUCTIONS = [
   '- Results carry vanillaCache metadata: if available is false, vanilla IDs are missing',
   '  and references to them may show as false errors.',
   '',
-  'This server never writes files — perform edits with your own environment, then',
-  're-check with get_diagnostics.',
+  'Use only the exposed whitelisted domain-write tools for writes, then re-check',
+  'with get_diagnostics. Non-whitelisted writes remain unavailable.',
 ].join('\n');
+
+function serverInstructions(host: HostServices): string {
+  if (host.projectSupported === false) {
+    return `CWTools is unavailable for this workspace: ${host.projectSupportReason ?? 'not a Paradox/CWT project.'}`;
+  }
+  if (host.projectKind === 'cwt-only') {
+    return 'CWTools is running in CWT-only mode. Use the exposed document, navigation, and diagnostics tools for CWT rules; no game model is loaded.';
+  }
+  if (host.projectGameId === 'paradox') {
+    return `${FULL_SERVER_INSTRUCTIONS}\n\nThe exact game is unknown. Generic Paradox mode is active; no game-specific rules or vanilla cache are assumed. Pass --game to enable a specific game model.`;
+  }
+  return FULL_SERVER_INSTRUCTIONS;
+}
+
+export function listServerTools(host: HostServices) {
+  if (host.projectSupported === false || host.projectKind === 'unsupported' || host.projectKind === 'ambiguous') return [];
+  return listRegisteredTools({
+    includeWrites: host.writesEnabled === true && host.readonlyMode === false,
+    cwtOnly: host.projectKind === 'cwt-only',
+  });
+}
 
 export function createCwtoolsMcpServer(
   host: HostServices,
@@ -56,17 +77,14 @@ export function createCwtoolsMcpServer(
         resources: {},
         tools: {},
       },
-      instructions: SERVER_INSTRUCTIONS,
+      instructions: serverInstructions(host),
     },
   );
   const callTool = createToolCallHandler(host, options.dispatcher);
 
-  // Tools stay listed even on unsupported workspaces so the model can always see
-  // CWTools exists (instead of falling back to hunting for a CLI). The heavy work
-  // is gated at call time below, not by hiding the toolset.
-  server.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: listRegisteredTools({ includeWrites: host.writesEnabled === true && host.readonlyMode === false }),
-  }));
+  // Unsupported projects disclose no schemas. Calls are still gated below for
+  // clients holding a cached tool list from a previous workspace/session.
+  server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: listServerTools(host) }));
 
   server.setRequestHandler(ListResourcesRequestSchema, async () => ({
     resources: listResources(host),
@@ -86,9 +104,9 @@ export function createCwtoolsMcpServer(
         status: 'denied',
         source: 'cwtools-mcp',
         error: {
-          code: 'project_not_supported',
+          code: host.projectKind === 'ambiguous' ? 'project_ambiguous' : 'project_not_supported',
           message:
-            `CWTools is disabled for this workspace (${host.workspaceRoot}): ${host.projectSupportReason ?? 'not a Paradox mod.'} ` +
+            `CWTools is disabled for this workspace (${host.workspaceRoot}): ${host.projectSupportReason ?? 'not a Paradox/CWT project.'} ` +
             'If this IS a mod, point the server at the mod root — set the working directory (or pass --workspace <mod>) — or pass --force-start to override.',
         },
       });

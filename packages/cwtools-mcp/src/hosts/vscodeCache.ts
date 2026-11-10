@@ -100,7 +100,8 @@ function containsRuleFiles(dir: string): boolean {
 }
 
 export function detectExtensionRulesDir(cacheDir: string | undefined, game: string | undefined): string | undefined {
-  const g = (game ?? 'stellaris').toLowerCase();
+  if (!game || game === 'paradox' || game === 'cwt') return undefined;
+  const g = game.toLowerCase();
   const roots = [
     ...(cacheDir ? [cacheDir] : []),
     ...globalStorageBases().map(base => path.join(base, PRIMARY_EXTENSION_DIR, '.cwtools')),

@@ -2,7 +2,7 @@
   "name": "cwtools-mcp-root",
   "version": "0.1.0",
   "private": true,
-  "description": "Read-only MCP server exposing CWTools Paradox/Stellaris semantic tools to external agents",
+  "description": "MCP server exposing CWTools semantic tools and default-on whitelisted domain writes",
   "workspaces": [
     "packages/cwtools-shared",
     "packages/cwtools-mcp"

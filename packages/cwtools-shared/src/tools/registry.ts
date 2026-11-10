@@ -25,4 +25,5 @@ export interface ToolRegistryMetadata {
   effect: ToolEffect;
   riskLevel: 0 | 1 | 2 | 3;
   concurrencyClass: ToolConcurrencyClass;
+  mcpSupportsCwtOnly: boolean;
 }

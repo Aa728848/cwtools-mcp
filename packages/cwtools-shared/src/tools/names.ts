@@ -60,7 +60,7 @@ export type McpToolName = typeof MCP_ALL_TOOL_NAMES[number];
 
 export function isMcpToolName(value: string, options?: { includeWrites?: boolean }): value is McpToolName {
   if ((MCP_READONLY_TOOL_NAMES as readonly string[]).includes(value)) return true;
-  if (options?.includeWrites && (MCP_WRITE_TOOL_NAMES as readonly string[]).includes(value)) return true;
+  if (options?.includeWrites !== false && (MCP_WRITE_TOOL_NAMES as readonly string[]).includes(value)) return true;
   return false;
 }
 

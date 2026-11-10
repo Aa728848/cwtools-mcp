@@ -93,6 +93,26 @@ stale, or the client workspace differs from the bridge workspace, tool
 calls return `bridge_unavailable` with recovery instructions. The proxy
 intentionally does not silently fall back to a separate language server.
 
+### Project Detection And Capability Modes
+
+The server separates project support from game identity. Strong evidence includes
+`descriptor.mod`, a valid `.cwtools/project/profile.json`, distinctive nested game
+directories, known Workshop App IDs, and validated game-data paths. Generic content
+directories require at least two directories plus a real PDX payload file. Parent
+lookup accepts only strong non-recursive evidence; child lookup accepts exactly one
+project and returns `project_ambiguous` when several exist.
+
+Unsupported and ambiguous workspaces return empty `tools/list` and
+`resources/list`, never start an LSP, and reject cached calls. A supported mod with
+an inconclusive game uses generic `paradox` mode with no Stellaris rules/cache;
+`--game` supplies an explicit game. `--force-start` permits generic mode without
+markers but does not invent a game or select among multiple child projects.
+
+CWT-only mode starts the LSP as `cwt` and exposes only `get_diagnostics`,
+`analyze_diagnostic_error`, `get_completion_at`, `document_symbols`,
+`workspace_symbols`, `go_to_definition`, and `find_references`. Other cached tool
+calls fail with `tool_not_available_in_cwt_only`.
+
 ### Optional Standalone Mode
 
 Use standalone mode only when you explicitly want the MCP process to start its
@@ -125,8 +145,9 @@ using the active extension host's loaded state.
 
 ### Tools
 
-The MCP surface remains read-only. It exposes the generated CWTools semantic
-tools such as:
+The MCP surface exposes generated CWTools semantic tools plus six whitelisted
+domain-write tools by default. The legacy `--enable-writes` /
+`--allow-domain-writes` flags remain accepted but are no longer required.
 
 - `query_types`
 - `query_rules`
@@ -140,9 +161,10 @@ tools such as:
 - deep semantic queries for scripted effects/triggers, enums, static modifiers,
   variables, and entity info
 
-File edits are intentionally not exposed through this MCP server. External agents
-should edit files through their own environment and then call MCP diagnostics or
-semantic tools again.
+Default domain writes are `write_localisation`, `typed_pdx_write`,
+`candidate_transaction`, `convert_image_to_dds`, `convert_audio`, and
+`deploy_mod_asset`. Existing path containment, locks, and validation prechecks still
+apply; non-whitelisted writes remain unavailable. Re-run diagnostics after writes.
 
 ---
 
@@ -230,6 +252,23 @@ node -e "const fs=require('fs'),os=require('os'),path=require('path');const p=pa
 如果兼容宿主未打开、工作区未激活、manifest 已失效，或客户端工作区与 bridge
 工作区不一致，工具调用会返回 `bridge_unavailable` 和恢复说明。代理不会静默回退并启动单独的语言服务。
 
+### 项目识别与能力模式
+
+服务端分开判断项目是否支持和具体游戏身份。强证据包括 `descriptor.mod`、有效的
+`.cwtools/project/profile.json`、游戏专属嵌套目录、已知 Workshop App ID 和经过验证的
+游戏数据目录。通用内容目录必须至少有两个，并且包含真实 PDX 文件。祖先查找只接受
+非递归强证据；子项目查找只接受唯一匹配，多个匹配返回 `project_ambiguous`。
+
+非支持与歧义工作区返回空的 `tools/list` 和 `resources/list`，不启动 LSP，并拒绝
+缓存调用。游戏无法确定但确认是 Mod 时，使用不带 Stellaris 规则/缓存的通用
+`paradox` 模式；`--game` 可显式指定游戏。`--force-start` 允许无标记项目进入通用模式，
+但不会伪造游戏，也不会从多个子项目中任选一个。
+
+CWT-only 模式以 `cwt` 启动 LSP，只暴露 `get_diagnostics`、
+`analyze_diagnostic_error`、`get_completion_at`、`document_symbols`、
+`workspace_symbols`、`go_to_definition` 和 `find_references`。其他缓存工具调用返回
+`tool_not_available_in_cwt_only`。
+
 ### 可选 Standalone 模式
 
 只有在明确需要旧行为时才使用 standalone 模式：MCP 进程会自行启动一份 CWTools
@@ -261,7 +300,8 @@ cwtools-mcp --standalone --workspace /path/to/mod --game stellaris --rules "/pat
 
 ### 工具
 
-MCP 入口仍保持只读。它暴露生成出来的 CWTools 语义工具，例如：
+MCP 入口默认提供生成的 CWTools 语义工具和六个白名单领域写入工具。
+兼容参数 `--enable-writes` / `--allow-domain-writes` 仍可使用，但不再是启用前提。
 
 - `query_types`
 - `query_rules`
@@ -274,5 +314,6 @@ MCP 入口仍保持只读。它暴露生成出来的 CWTools 语义工具，例�
 - 补全、document/workspace symbols、定义和引用查询
 - scripted effects/triggers、enums、static modifiers、variables、entity info 等深层语义查询
 
-文件写入不会通过这个 MCP server 暴露。外部 Agent 应使用自己的环境编辑文件，
-然后再调用 MCP 诊断或语义工具复查。
+默认写入工具为 `write_localisation`、`typed_pdx_write`、`candidate_transaction`、
+`convert_image_to_dds`、`convert_audio` 和 `deploy_mod_asset`。既有路径包含性、
+锁和写入预检仍然生效，非白名单写入继续拒绝。写入后应重新调用诊断。

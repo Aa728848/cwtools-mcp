@@ -33,6 +33,9 @@ describe('MCP vanilla cache contract', () => {
     const bridge = parseCliArgs(['--stdio']);
     expect(bridge.standalone).to.equal(false);
     expect(bridge.workspaceRootExplicit).to.equal(false);
+    expect(bridge.enableWrites).to.equal(true);
+    expect(parseCliArgs(['--enable-writes']).enableWrites).to.equal(true);
+    expect(parseCliArgs(['--allow-domain-writes']).enableWrites).to.equal(true);
 
     const standalone = parseCliArgs(['--standalone', '--workspace', '.']);
     expect(standalone.standalone).to.equal(true);

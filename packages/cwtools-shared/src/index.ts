@@ -1,4 +1,5 @@
 export * from './generated/mcpTools';
+export * from './generated/workspaceGameDetection';
 export * from './host/diagnostics';
 export * from './host/filesystem';
 export * from './host/hostServices';

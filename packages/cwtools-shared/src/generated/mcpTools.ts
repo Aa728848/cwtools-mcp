@@ -39,7 +39,8 @@ export const GENERATED_MCP_TOOLS = [
       "isReadOnly": true,
       "effect": "workspace_read",
       "riskLevel": 0,
-      "concurrencyClass": "parallel"
+      "concurrencyClass": "parallel",
+      "mcpSupportsCwtOnly": false
     }
   },
   {
@@ -79,7 +80,8 @@ export const GENERATED_MCP_TOOLS = [
       "isReadOnly": true,
       "effect": "workspace_read",
       "riskLevel": 0,
-      "concurrencyClass": "parallel"
+      "concurrencyClass": "parallel",
+      "mcpSupportsCwtOnly": false
     }
   },
   {
@@ -123,7 +125,8 @@ export const GENERATED_MCP_TOOLS = [
       "isReadOnly": true,
       "effect": "workspace_read",
       "riskLevel": 0,
-      "concurrencyClass": "parallel"
+      "concurrencyClass": "parallel",
+      "mcpSupportsCwtOnly": false
     }
   },
   {
@@ -170,7 +173,8 @@ export const GENERATED_MCP_TOOLS = [
       "isReadOnly": true,
       "effect": "workspace_read",
       "riskLevel": 0,
-      "concurrencyClass": "parallel"
+      "concurrencyClass": "parallel",
+      "mcpSupportsCwtOnly": false
     }
   },
   {
@@ -196,7 +200,8 @@ export const GENERATED_MCP_TOOLS = [
       "isReadOnly": true,
       "effect": "workspace_read",
       "riskLevel": 0,
-      "concurrencyClass": "parallel"
+      "concurrencyClass": "parallel",
+      "mcpSupportsCwtOnly": false
     }
   },
   {
@@ -222,7 +227,8 @@ export const GENERATED_MCP_TOOLS = [
       "isReadOnly": true,
       "effect": "workspace_read",
       "riskLevel": 0,
-      "concurrencyClass": "parallel"
+      "concurrencyClass": "parallel",
+      "mcpSupportsCwtOnly": false
     }
   },
   {
@@ -261,7 +267,8 @@ export const GENERATED_MCP_TOOLS = [
       "isReadOnly": true,
       "effect": "workspace_read",
       "riskLevel": 0,
-      "concurrencyClass": "parallel"
+      "concurrencyClass": "parallel",
+      "mcpSupportsCwtOnly": false
     }
   },
   {
@@ -300,7 +307,8 @@ export const GENERATED_MCP_TOOLS = [
       "isReadOnly": true,
       "effect": "workspace_read",
       "riskLevel": 0,
-      "concurrencyClass": "lsp-limited"
+      "concurrencyClass": "lsp-limited",
+      "mcpSupportsCwtOnly": true
     }
   },
   {
@@ -348,7 +356,8 @@ export const GENERATED_MCP_TOOLS = [
       "isReadOnly": true,
       "effect": "none",
       "riskLevel": 2,
-      "concurrencyClass": "global-exclusive"
+      "concurrencyClass": "global-exclusive",
+      "mcpSupportsCwtOnly": true
     }
   },
   {
@@ -398,7 +407,8 @@ export const GENERATED_MCP_TOOLS = [
       "isReadOnly": true,
       "effect": "workspace_read",
       "riskLevel": 0,
-      "concurrencyClass": "parallel"
+      "concurrencyClass": "parallel",
+      "mcpSupportsCwtOnly": false
     }
   },
   {
@@ -469,7 +479,8 @@ export const GENERATED_MCP_TOOLS = [
       "isReadOnly": true,
       "effect": "workspace_read",
       "riskLevel": 0,
-      "concurrencyClass": "parallel"
+      "concurrencyClass": "parallel",
+      "mcpSupportsCwtOnly": false
     }
   },
   {
@@ -543,7 +554,8 @@ export const GENERATED_MCP_TOOLS = [
       "isReadOnly": true,
       "effect": "workspace_read",
       "riskLevel": 0,
-      "concurrencyClass": "parallel"
+      "concurrencyClass": "parallel",
+      "mcpSupportsCwtOnly": false
     }
   },
   {
@@ -612,7 +624,8 @@ export const GENERATED_MCP_TOOLS = [
       "isReadOnly": true,
       "effect": "workspace_read",
       "riskLevel": 0,
-      "concurrencyClass": "lsp-limited"
+      "concurrencyClass": "lsp-limited",
+      "mcpSupportsCwtOnly": false
     }
   },
   {
@@ -648,7 +661,8 @@ export const GENERATED_MCP_TOOLS = [
       "isReadOnly": true,
       "effect": "workspace_read",
       "riskLevel": 0,
-      "concurrencyClass": "lsp-limited"
+      "concurrencyClass": "lsp-limited",
+      "mcpSupportsCwtOnly": false
     }
   },
   {
@@ -684,7 +698,8 @@ export const GENERATED_MCP_TOOLS = [
       "isReadOnly": true,
       "effect": "workspace_read",
       "riskLevel": 0,
-      "concurrencyClass": "lsp-limited"
+      "concurrencyClass": "lsp-limited",
+      "mcpSupportsCwtOnly": false
     }
   },
   {
@@ -715,7 +730,8 @@ export const GENERATED_MCP_TOOLS = [
       "isReadOnly": true,
       "effect": "workspace_read",
       "riskLevel": 0,
-      "concurrencyClass": "lsp-limited"
+      "concurrencyClass": "lsp-limited",
+      "mcpSupportsCwtOnly": false
     }
   },
   {
@@ -925,7 +941,8 @@ export const GENERATED_MCP_TOOLS = [
       "isReadOnly": true,
       "effect": "workspace_read",
       "riskLevel": 0,
-      "concurrencyClass": "parallel"
+      "concurrencyClass": "parallel",
+      "mcpSupportsCwtOnly": false
     }
   },
   {
@@ -989,7 +1006,8 @@ export const GENERATED_MCP_TOOLS = [
       "isReadOnly": true,
       "effect": "workspace_read",
       "riskLevel": 0,
-      "concurrencyClass": "parallel"
+      "concurrencyClass": "parallel",
+      "mcpSupportsCwtOnly": false
     }
   },
   {
@@ -1020,7 +1038,8 @@ export const GENERATED_MCP_TOOLS = [
       "isReadOnly": true,
       "effect": "workspace_read",
       "riskLevel": 0,
-      "concurrencyClass": "parallel"
+      "concurrencyClass": "parallel",
+      "mcpSupportsCwtOnly": false
     }
   },
   {
@@ -1060,7 +1079,8 @@ export const GENERATED_MCP_TOOLS = [
       "isReadOnly": true,
       "effect": "workspace_read",
       "riskLevel": 0,
-      "concurrencyClass": "parallel"
+      "concurrencyClass": "parallel",
+      "mcpSupportsCwtOnly": true
     }
   },
   {
@@ -1086,7 +1106,8 @@ export const GENERATED_MCP_TOOLS = [
       "isReadOnly": true,
       "effect": "workspace_read",
       "riskLevel": 0,
-      "concurrencyClass": "lsp-limited"
+      "concurrencyClass": "lsp-limited",
+      "mcpSupportsCwtOnly": true
     }
   },
   {
@@ -1116,7 +1137,8 @@ export const GENERATED_MCP_TOOLS = [
       "isReadOnly": true,
       "effect": "workspace_read",
       "riskLevel": 0,
-      "concurrencyClass": "lsp-limited"
+      "concurrencyClass": "lsp-limited",
+      "mcpSupportsCwtOnly": true
     }
   },
   {
@@ -1153,7 +1175,8 @@ export const GENERATED_MCP_TOOLS = [
       "isReadOnly": true,
       "effect": "workspace_read",
       "riskLevel": 0,
-      "concurrencyClass": "lsp-limited"
+      "concurrencyClass": "lsp-limited",
+      "mcpSupportsCwtOnly": true
     }
   },
   {
@@ -1194,7 +1217,8 @@ export const GENERATED_MCP_TOOLS = [
       "isReadOnly": true,
       "effect": "workspace_read",
       "riskLevel": 0,
-      "concurrencyClass": "lsp-limited"
+      "concurrencyClass": "lsp-limited",
+      "mcpSupportsCwtOnly": true
     }
   },
   {
@@ -1222,7 +1246,8 @@ export const GENERATED_MCP_TOOLS = [
       "isReadOnly": true,
       "effect": "workspace_read",
       "riskLevel": 0,
-      "concurrencyClass": "parallel"
+      "concurrencyClass": "parallel",
+      "mcpSupportsCwtOnly": false
     }
   },
   {
@@ -1250,7 +1275,8 @@ export const GENERATED_MCP_TOOLS = [
       "isReadOnly": true,
       "effect": "workspace_read",
       "riskLevel": 0,
-      "concurrencyClass": "parallel"
+      "concurrencyClass": "parallel",
+      "mcpSupportsCwtOnly": false
     }
   },
   {
@@ -1278,7 +1304,8 @@ export const GENERATED_MCP_TOOLS = [
       "isReadOnly": true,
       "effect": "workspace_read",
       "riskLevel": 0,
-      "concurrencyClass": "parallel"
+      "concurrencyClass": "parallel",
+      "mcpSupportsCwtOnly": false
     }
   },
   {
@@ -1306,7 +1333,8 @@ export const GENERATED_MCP_TOOLS = [
       "isReadOnly": true,
       "effect": "workspace_read",
       "riskLevel": 0,
-      "concurrencyClass": "parallel"
+      "concurrencyClass": "parallel",
+      "mcpSupportsCwtOnly": false
     }
   },
   {
@@ -1330,7 +1358,8 @@ export const GENERATED_MCP_TOOLS = [
       "isReadOnly": true,
       "effect": "workspace_read",
       "riskLevel": 0,
-      "concurrencyClass": "parallel"
+      "concurrencyClass": "parallel",
+      "mcpSupportsCwtOnly": false
     }
   },
   {
@@ -1356,7 +1385,8 @@ export const GENERATED_MCP_TOOLS = [
       "isReadOnly": true,
       "effect": "workspace_read",
       "riskLevel": 0,
-      "concurrencyClass": "parallel"
+      "concurrencyClass": "parallel",
+      "mcpSupportsCwtOnly": false
     }
   },
   {
@@ -1399,7 +1429,8 @@ export const GENERATED_MCP_TOOLS = [
       "isReadOnly": true,
       "effect": "workspace_read",
       "riskLevel": 0,
-      "concurrencyClass": "lsp-limited"
+      "concurrencyClass": "lsp-limited",
+      "mcpSupportsCwtOnly": false
     }
   },
   {
@@ -1425,7 +1456,8 @@ export const GENERATED_MCP_TOOLS = [
       "isReadOnly": true,
       "effect": "workspace_read",
       "riskLevel": 0,
-      "concurrencyClass": "lsp-limited"
+      "concurrencyClass": "lsp-limited",
+      "mcpSupportsCwtOnly": false
     }
   },
   {
@@ -1451,7 +1483,8 @@ export const GENERATED_MCP_TOOLS = [
       "isReadOnly": true,
       "effect": "workspace_read",
       "riskLevel": 0,
-      "concurrencyClass": "lsp-limited"
+      "concurrencyClass": "lsp-limited",
+      "mcpSupportsCwtOnly": false
     }
   },
   {
@@ -1481,7 +1514,8 @@ export const GENERATED_MCP_TOOLS = [
       "isReadOnly": true,
       "effect": "workspace_read",
       "riskLevel": 0,
-      "concurrencyClass": "lsp-limited"
+      "concurrencyClass": "lsp-limited",
+      "mcpSupportsCwtOnly": false
     }
   },
   {
@@ -1517,7 +1551,8 @@ export const GENERATED_MCP_TOOLS = [
       "isReadOnly": true,
       "effect": "workspace_read",
       "riskLevel": 0,
-      "concurrencyClass": "lsp-limited"
+      "concurrencyClass": "lsp-limited",
+      "mcpSupportsCwtOnly": false
     }
   },
   {
@@ -1543,7 +1578,8 @@ export const GENERATED_MCP_TOOLS = [
       "isReadOnly": true,
       "effect": "workspace_read",
       "riskLevel": 0,
-      "concurrencyClass": "lsp-limited"
+      "concurrencyClass": "lsp-limited",
+      "mcpSupportsCwtOnly": false
     }
   },
   {
@@ -1571,7 +1607,8 @@ export const GENERATED_MCP_TOOLS = [
       "isReadOnly": true,
       "effect": "workspace_read",
       "riskLevel": 0,
-      "concurrencyClass": "lsp-limited"
+      "concurrencyClass": "lsp-limited",
+      "mcpSupportsCwtOnly": false
     }
   },
   {
@@ -1599,7 +1636,8 @@ export const GENERATED_MCP_TOOLS = [
       "isReadOnly": true,
       "effect": "workspace_read",
       "riskLevel": 0,
-      "concurrencyClass": "parallel"
+      "concurrencyClass": "parallel",
+      "mcpSupportsCwtOnly": false
     }
   },
   {
@@ -1642,7 +1680,8 @@ export const GENERATED_MCP_TOOLS = [
       "isReadOnly": true,
       "effect": "workspace_read",
       "riskLevel": 0,
-      "concurrencyClass": "parallel"
+      "concurrencyClass": "parallel",
+      "mcpSupportsCwtOnly": false
     }
   },
   {
@@ -1710,7 +1749,8 @@ export const GENERATED_MCP_TOOLS = [
       "isReadOnly": false,
       "effect": "workspace_write",
       "riskLevel": 2,
-      "concurrencyClass": "per-file-write"
+      "concurrencyClass": "per-file-write",
+      "mcpSupportsCwtOnly": false
     }
   },
   {
@@ -4198,7 +4238,8 @@ export const GENERATED_MCP_TOOLS = [
       "isReadOnly": false,
       "effect": "workspace_write",
       "riskLevel": 2,
-      "concurrencyClass": "per-file-write"
+      "concurrencyClass": "per-file-write",
+      "mcpSupportsCwtOnly": false
     }
   },
   {
@@ -4238,7 +4279,8 @@ export const GENERATED_MCP_TOOLS = [
       "isReadOnly": false,
       "effect": "workspace_write",
       "riskLevel": 2,
-      "concurrencyClass": "per-file-write"
+      "concurrencyClass": "per-file-write",
+      "mcpSupportsCwtOnly": false
     }
   },
   {
@@ -4282,7 +4324,8 @@ export const GENERATED_MCP_TOOLS = [
       "isReadOnly": false,
       "effect": "media",
       "riskLevel": 2,
-      "concurrencyClass": "interactive"
+      "concurrencyClass": "interactive",
+      "mcpSupportsCwtOnly": false
     }
   },
   {
@@ -4329,7 +4372,8 @@ export const GENERATED_MCP_TOOLS = [
       "isReadOnly": false,
       "effect": "media",
       "riskLevel": 2,
-      "concurrencyClass": "interactive"
+      "concurrencyClass": "interactive",
+      "mcpSupportsCwtOnly": false
     }
   },
   {
@@ -4364,7 +4408,8 @@ export const GENERATED_MCP_TOOLS = [
       "isReadOnly": false,
       "effect": "media",
       "riskLevel": 2,
-      "concurrencyClass": "interactive"
+      "concurrencyClass": "interactive",
+      "mcpSupportsCwtOnly": false
     }
   }
 ] as const satisfies readonly GeneratedMcpTool[];

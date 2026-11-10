@@ -8,8 +8,9 @@ describe('MCP schema contract', () => {
   it('generates the MCP tool schemas for every whitelisted tool name', () => {
     const generated = getGeneratedMcpTools();
     expect(generated.map(entry => entry.tool.name)).to.deep.equal([...MCP_ALL_TOOL_NAMES]);
-    expect(listMcpToolSchemas().map(tool => tool.name)).to.deep.equal([...MCP_TOOL_NAMES]);
+    expect(listMcpToolSchemas().map(tool => tool.name)).to.deep.equal([...MCP_ALL_TOOL_NAMES]);
     expect(listMcpToolSchemas({ includeWrites: true }).map(tool => tool.name)).to.deep.equal([...MCP_ALL_TOOL_NAMES]);
+    expect(listMcpToolSchemas({ includeWrites: false }).map(tool => tool.name)).to.deep.equal([...MCP_TOOL_NAMES]);
     expect(generated.map(entry => entry.tool.name)).to.include.members([
       'get_completion_at',
       'document_symbols',

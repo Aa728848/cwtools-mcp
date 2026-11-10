@@ -9,9 +9,11 @@ function tmp(prefix: string): string {
 }
 
 describe('MCP project detection contract', () => {
-  it('detects a mod at the workspace root via a content dir', () => {
+  it('detects a mod at the workspace root via composite content evidence', () => {
     const ws = tmp('root');
     fs.mkdirSync(path.join(ws, 'common'));
+    fs.mkdirSync(path.join(ws, 'events'));
+    fs.writeFileSync(path.join(ws, 'events', 'sample.txt'), 'namespace = sample');
     const r = detectProjectSupport(ws);
     expect(r.supported).to.equal(true);
     expect(r.matchedAt).to.equal(ws);
@@ -29,16 +31,30 @@ describe('MCP project detection contract', () => {
 
   it('detects a mod in an immediate subfolder (cwd is a parent)', () => {
     const parent = tmp('child');
-    fs.mkdirSync(path.join(parent, 'MyMod', '.cwtools'), { recursive: true });
+    fs.mkdirSync(path.join(parent, 'MyMod'), { recursive: true });
+    fs.writeFileSync(path.join(parent, 'MyMod', 'descriptor.mod'), '');
     const r = detectProjectSupport(parent);
     expect(r.supported).to.equal(true);
     expect(r.matchedAt).to.equal(path.join(parent, 'MyMod'));
   });
 
-  it('does not flag an unrelated project', () => {
+  it('does not flag an unrelated project or a lone common directory', () => {
     const ws = tmp('plain');
     fs.writeFileSync(path.join(ws, 'index.js'), '');
+    fs.mkdirSync(path.join(ws, 'common'));
     expect(detectProjectSupport(ws).supported).to.equal(false);
+  });
+
+  it('returns ambiguity instead of selecting the first child project', () => {
+    const ws = tmp('ambiguous');
+    for (const name of ['b-mod', 'a-mod']) {
+      fs.mkdirSync(path.join(ws, name));
+      fs.writeFileSync(path.join(ws, name, 'descriptor.mod'), '');
+    }
+    const result = detectProjectSupport(ws);
+    expect(result.supported).to.equal(false);
+    expect(result.kind).to.equal('ambiguous');
+    expect(result.candidates).to.deep.equal([path.join(ws, 'a-mod'), path.join(ws, 'b-mod')]);
   });
 
   it('does not treat a generic content dir in a far ancestor as a mod', () => {

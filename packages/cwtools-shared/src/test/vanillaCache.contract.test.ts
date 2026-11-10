@@ -15,7 +15,9 @@ describe('vanilla cache annotation contract', () => {
     expect(vanillaCacheFileName('stellaris')).to.equal('stl.cwb');
     expect(vanillaCacheFileName('imperator')).to.equal('ir.cwb');
     expect(vanillaCacheFileName('ck3')).to.equal('ck3.cwb');
-    expect(vanillaCacheFileName(undefined)).to.equal('stl.cwb');
+    expect(vanillaCacheFileName(undefined)).to.equal(undefined);
+    expect(vanillaCacheFileName('paradox')).to.equal(undefined);
+    expect(vanillaCacheFileName('cwt')).to.equal(undefined);
     expect(vanillaCacheFileName('not-a-game')).to.equal(undefined);
   });
 

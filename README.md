@@ -6,8 +6,8 @@
 
 ## English
 
-Read-only [Model Context Protocol](https://modelcontextprotocol.io) server that
-exposes the CWTools Paradox/Stellaris semantic tools (project knowledge pack,
+[Model Context Protocol](https://modelcontextprotocol.io) server that
+exposes CWTools Paradox/Stellaris semantic tools and default-on whitelisted domain writes (project knowledge pack,
 bounded project graph, syntax check, scope queries, definitions, references,
 diagnostics, scripted triggers/effects/enums, and seven Shader queries) to
 external agents such as Codex and Claude Code.
@@ -29,6 +29,12 @@ supported hosts — reusing the IDE's CWTools language client and diagnostics
 instead of starting a second server. A legacy self-hosted LSP mode is available
 with `--standalone`.
 
+Both modes require reliable Paradox/CWT evidence. A lone `common/` directory or a
+generic `metadata.json` is not enough. Unsupported or ambiguous workspaces expose
+no tools/resources and never spawn an LSP. If the game is unknown, Standalone uses
+generic `paradox` mode rather than assuming Stellaris. CWT-only workspaces expose
+only the seven document/navigation/diagnostic tools that work without a game model.
+
 ### Setup
 
 ```sh
@@ -49,7 +55,7 @@ For hand-written `~/.codex/config.toml`, `--standalone` / `--rules` / `--cache`
 git submodule update --init   # pulls submodules/cwtools-stellaris-config (CWT rules for tests/dev)
 npm install
 npm run build            # build both packages (cwtools-shared, cwtools-mcp)
-npm run test:contracts   # contract tests (schema drift, read-only, routing)
+npm run test:contracts   # contract tests (schema drift, write policy, routing)
 npm run bundle           # single-file dist/cwtools-mcp.cjs via esbuild
 ```
 
@@ -69,7 +75,7 @@ Both packages are published to npm (`cwtools-shared` first, then
 
 ## 中文
 
-只读的 [Model Context Protocol](https://modelcontextprotocol.io) 服务，把
+[Model Context Protocol](https://modelcontextprotocol.io) 服务，默认提供白名单领域写入，并把
 CWTools 的 Paradox/Stellaris 语义工具（项目知识包、有界项目语义图、语法检查、
 作用域查询、定义/引用、诊断、scripted triggers/effects/enums 和七个 Shader
 查询）开放给 Codex、Claude Code 等外部 Agent。
@@ -87,6 +93,11 @@ CWTools 的 Paradox/Stellaris 语义工具（项目知识包、有界项目语�
 Antigravity）桥接进已激活的 VS Code 兼容宿主，复用 IDE 已有的 CWTools 语言
 客户端与诊断，不启动第二个服务。旧的自托管 LSP 模式可用 `--standalone`
 显式启用。
+
+两种模式都要求可靠的 Paradox/CWT 证据。单独一个 `common/` 或通用
+`metadata.json` 不足以启用。非支持或歧义工作区不披露工具/资源，也不会启动
+LSP。无法确定游戏时，Standalone 使用通用 `paradox` 模式而不是假定 Stellaris。
+CWT-only 工作区只暴露无需游戏模型即可工作的七个文档、导航与诊断工具。
 
 ### 接入
 
@@ -108,7 +119,7 @@ claude mcp add cwtools --scope user -- npx -y cwtools-mcp --stdio
 git submodule update --init   # 拉取 submodules/cwtools-stellaris-config（测试/开发用 CWT 规则）
 npm install
 npm run build            # 构建两个包（cwtools-shared、cwtools-mcp）
-npm run test:contracts   # 合约测试（schema 漂移、只读、路由）
+npm run test:contracts   # 合约测试（schema 漂移、写入策略、路由）
 npm run bundle           # esbuild 产出单文件 dist/cwtools-mcp.cjs
 ```
 

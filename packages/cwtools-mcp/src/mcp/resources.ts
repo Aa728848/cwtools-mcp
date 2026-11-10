@@ -58,6 +58,10 @@ export function listResources(host?: HostServices) {
     },
   ];
 
+  if (host?.projectSupported === false) return [];
+  if (host?.projectKind === 'cwt-only') {
+    return base.filter(resource => resource.uri === 'cwtools://knowledge/diagnostic-routing');
+  }
   if (host?.workspaceRoot) {
     for (const skill of discoverSkills(host.workspaceRoot)) {
       base.push({
@@ -73,6 +77,19 @@ export function listResources(host?: HostServices) {
 }
 
 export async function readResource(host: HostServices, uri: string) {
+  if (host.projectSupported === false
+    || (host.projectKind === 'cwt-only' && uri !== 'cwtools://knowledge/diagnostic-routing')) {
+    const code = host.projectKind === 'ambiguous'
+      ? 'project_ambiguous'
+      : host.projectSupported === false ? 'project_not_supported' : 'resource_not_available_in_cwt_only';
+    return {
+      contents: [{
+        uri,
+        mimeType: 'application/json',
+        text: `${JSON.stringify({ status: 'error', error: { code, message: host.projectSupportReason ?? 'Resource is not available for this workspace.' } }, null, 2)}\n`,
+      }],
+    };
+  }
   if (uri.startsWith('cwtools://skills/') && uri !== 'cwtools://skills/catalog') {
     const skillName = decodeURIComponent(uri.slice('cwtools://skills/'.length));
     const found = discoverSkills(host.workspaceRoot).find(entry => entry.name === skillName);

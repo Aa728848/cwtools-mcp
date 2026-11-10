@@ -2,7 +2,7 @@ import {
   annotateReadiness,
   annotateVanillaCache,
   defaultSharedToolDispatcher,
-  isMcpToolName,
+  isMcpToolAvailable,
   LOAD_DEPENDENT_TOOLS,
   parseReadiness,
   type HostServices,
@@ -31,21 +31,30 @@ export function createToolCallHandler(
 
   return async (name, args = {}) => {
     const writesEnabled = host.writesEnabled === true && host.readonlyMode === false;
-    if (!isMcpToolName(name, { includeWrites: writesEnabled })) {
+    const cwtOnly = host.projectKind === 'cwt-only';
+    if (!isMcpToolAvailable(name, { includeWrites: writesEnabled, cwtOnly })) {
       return {
         ok: false,
         status: 'denied',
         source: 'cwtools-mcp',
         error: {
-          code: 'tool_not_available',
-          message: `Tool '${name}' is not available: this MCP server is read-only unless started with --allow-domain-writes (or --enable-writes).`,
+          code: cwtOnly ? 'tool_not_available_in_cwt_only' : 'tool_not_available',
+          message: cwtOnly
+            ? `Tool '${name}' requires a full Paradox game model and is not available in a CWT-only workspace.`
+            : `Tool '${name}' is not available under the current host write policy.`,
         },
       };
     }
     const result = await dispatcher(host, name, args);
+    const withGenericWarning = host.projectGameId === 'paradox'
+      ? {
+          ...result,
+          warnings: [...(result.warnings ?? []), 'Generic Paradox mode: the exact game is unknown; no game-specific rules or vanilla data are assumed. Pass --game to select a game.'],
+        }
+      : result;
     // Tag vanilla-dependent results with cache provenance so clients never read a
     // mod-only answer as complete.
-    const withVanilla = annotateVanillaCache(name, result, host.vanillaCache);
+    const withVanilla = annotateVanillaCache(name, withGenericWarning, host.vanillaCache);
     // For load-dependent tools, mark results produced before the game is ready as
     // `loading` so clients retry instead of trusting an empty answer.
     if (!LOAD_DEPENDENT_TOOLS.has(name)) return withVanilla;

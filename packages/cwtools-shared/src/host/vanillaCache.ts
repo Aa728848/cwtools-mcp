@@ -29,7 +29,7 @@ const GAME_CACHE_PREFIX: Record<string, string> = {
 };
 
 export function vanillaCacheFileName(game: string | undefined): string | undefined {
-  const prefix = GAME_CACHE_PREFIX[(game ?? 'stellaris').toLowerCase()];
+  const prefix = game ? GAME_CACHE_PREFIX[game.toLowerCase()] : undefined;
   return prefix ? `${prefix}.cwb` : undefined;
 }
 

@@ -48,11 +48,11 @@ describe('MCP extension rules detection contract', () => {
     expect(detectExtensionRulesDir(tmp, 'stellaris')).to.equal(undefined);
   });
 
-  it('defaults to stellaris when game is undefined', () => {
+  it('does not select Stellaris rules when game is undefined', () => {
     const config = path.join(tmp, 'stellaris', 'config');
     fs.mkdirSync(config, { recursive: true });
     fs.writeFileSync(path.join(config, 'effects.cwt'), 'x');
-    expect(detectExtensionRulesDir(tmp, undefined)).to.equal(config);
+    expect(detectExtensionRulesDir(tmp, undefined)).to.equal(undefined);
   });
 
   it('ignores obsolete extension globalStorage rules', () => {

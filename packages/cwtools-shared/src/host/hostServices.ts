@@ -3,6 +3,7 @@ import type { FilesystemHost } from './filesystem';
 import type { IndexHost } from './indexing';
 import type { LspHost } from './lsp';
 import type { VanillaCacheStatus } from './vanillaCache';
+import type { WorkspaceProjectKind } from '../generated/workspaceGameDetection';
 
 export type HostLogLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -43,6 +44,10 @@ export interface HostServices {
   vanillaCache?: VanillaCacheStatus;
   projectSupported?: boolean;
   projectSupportReason?: string;
+  projectKind?: WorkspaceProjectKind;
+  projectGameId?: string;
+  projectEvidence?: string[];
+  projectCandidates?: string[];
   now(): number;
   log(level: HostLogLevel, message: string, data?: unknown): void;
   dispose?(): void;

@@ -8,7 +8,7 @@ import {
   ListToolsRequestSchema,
   ReadResourceRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
-import type { SharedToolResult } from 'cwtools-shared';
+import { detectWorkspaceProject, type SharedToolResult, type WorkspaceProjectDetection } from 'cwtools-shared';
 import type { CwtoolsMcpConfig } from '../config';
 import { detectExtensionBridgeManifestPath } from '../hosts/vscodeCache';
 import { listResources } from './resources';
@@ -28,6 +28,7 @@ interface BridgeManifest {
   token: string;
   pid: number;
   workspaceRoot: string;
+  project?: Pick<WorkspaceProjectDetection, 'kind' | 'gameId' | 'reason' | 'evidence' | 'candidates'>;
   hostAppName?: string;
   extensionId?: string;
   updatedAt?: string;
@@ -62,6 +63,41 @@ interface McpListResourcesResult {
   resources: ReturnType<typeof listResources>;
 }
 
+export function fallbackBridgeTools(project: WorkspaceProjectDetection, includeWrites: boolean) {
+  if (project.kind === 'unsupported' || project.kind === 'ambiguous') return [];
+  return listRegisteredTools({ includeWrites, cwtOnly: project.kind === 'cwt-only' });
+}
+
+export function fallbackBridgeResources(project: WorkspaceProjectDetection) {
+  if (project.kind === 'unsupported' || project.kind === 'ambiguous') return [];
+  const resources = listResources();
+  return project.kind === 'cwt-only'
+    ? resources.filter(resource => resource.uri === 'cwtools://knowledge/diagnostic-routing')
+    : resources;
+}
+
+export function localBridgeToolDenied(
+  project: WorkspaceProjectDetection,
+  name: string,
+): SharedToolResult | undefined {
+  if (project.kind !== 'unsupported' && project.kind !== 'ambiguous'
+    && (project.kind !== 'cwt-only'
+      || fallbackBridgeTools(project, true).some(tool => tool.name === name))) return undefined;
+  return {
+    ok: false,
+    status: 'denied',
+    source: 'cwtools-mcp-bridge-proxy',
+    error: {
+      code: project.kind === 'ambiguous'
+        ? 'project_ambiguous'
+        : project.kind === 'unsupported' ? 'project_not_supported' : 'tool_not_available_in_cwt_only',
+      message: project.kind === 'cwt-only'
+        ? `Tool '${name}' requires a full Paradox game model and is not available in a CWT-only workspace.`
+        : project.reason,
+    },
+  };
+}
+
 export function createBridgeProxyMcpServer(config: CwtoolsMcpConfig): Server {
   const server = new Server(
     {
@@ -84,27 +120,66 @@ export function createBridgeProxyMcpServer(config: CwtoolsMcpConfig): Server {
 
   server.setRequestHandler(ListToolsRequestSchema, async () => {
     try {
+      const manifest = await readBridgeManifest(config, server);
+      if (!manifest.project) {
+        const project = await detectProxyWorkspace(config, server);
+        return { tools: fallbackBridgeTools(project, config.enableWrites) };
+      }
       return await bridgeRpc<McpListToolsResult>(config, server, 'tools/list', {
         allowDomainWrites: config.enableWrites,
-      });
+      }, manifest);
     } catch {
-      return { tools: listRegisteredTools({ includeWrites: config.enableWrites }) };
+      try {
+        const project = await detectProxyWorkspace(config, server);
+        return { tools: fallbackBridgeTools(project, config.enableWrites) };
+      } catch {
+        return { tools: [] };
+      }
     }
   });
 
   server.setRequestHandler(ListResourcesRequestSchema, async () => {
     try {
-      return await bridgeRpc<McpListResourcesResult>(config, server, 'resources/list', {});
+      const manifest = await readBridgeManifest(config, server);
+      if (!manifest.project) {
+        const project = await detectProxyWorkspace(config, server);
+        return { resources: fallbackBridgeResources(project) };
+      }
+      return await bridgeRpc<McpListResourcesResult>(config, server, 'resources/list', {}, manifest);
     } catch {
-      return { resources: listResources() };
+      try {
+        const project = await detectProxyWorkspace(config, server);
+        return { resources: fallbackBridgeResources(project) };
+      } catch {
+        return { resources: [] };
+      }
     }
   });
 
   server.setRequestHandler(ReadResourceRequestSchema, async request => {
     try {
+      const manifest = await readBridgeManifest(config, server);
+      if (!manifest.project) {
+        const project = await detectProxyWorkspace(config, server);
+        if (!fallbackBridgeResources(project).some(resource => resource.uri === request.params.uri)) {
+          return {
+            contents: [{
+              uri: request.params.uri,
+              mimeType: 'application/json',
+              text: `${JSON.stringify({
+                status: 'error',
+                error: {
+                  code: project.kind === 'ambiguous' ? 'project_ambiguous' : project.kind === 'unsupported' ? 'project_not_supported' : 'resource_not_available_in_cwt_only',
+                  message: project.reason,
+                },
+              }, null, 2)}\n`,
+            }],
+          };
+        }
+      }
       return await bridgeRpc<McpReadResourceResult>(config, server, 'resources/read', {
         uri: request.params.uri,
-      });
+      }, manifest);
     } catch (error) {
       return {
         contents: [
@@ -123,13 +198,26 @@ export function createBridgeProxyMcpServer(config: CwtoolsMcpConfig): Server {
       const args = request.params.arguments && typeof request.params.arguments === 'object'
         ? request.params.arguments as Record<string, unknown>
         : {};
+      const manifest = await readBridgeManifest(config, server);
+      if (!manifest.project) {
+        const project = await detectProxyWorkspace(config, server);
+        const denied = localBridgeToolDenied(project, request.params.name);
+        if (denied) return toMcpCallToolResult(denied);
+      }
       const result = await bridgeRpc<McpCallToolResult>(config, server, 'tools/call', {
         name: request.params.name,
         arguments: args,
         allowDomainWrites: config.enableWrites,
-      });
+      }, manifest);
       return normalizeCallToolResult(result);
     } catch (error) {
+      try {
+        const project = await detectProxyWorkspace(config, server);
+        const denied = localBridgeToolDenied(project, request.params.name);
+        if (denied) return toMcpCallToolResult(denied);
+      } catch {
+        // Preserve the original bridge error when local fallback detection fails.
+      }
       return toMcpCallToolResult(unavailableResult(error));
     }
   });
@@ -142,8 +230,9 @@ async function bridgeRpc<T>(
   server: Server,
   method: string,
   params: Record<string, unknown>,
+  knownManifest?: BridgeManifest,
 ): Promise<T> {
-  const manifest = await readBridgeManifest(config, server);
+  const manifest = knownManifest ?? await readBridgeManifest(config, server);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 30_000);
   try {
@@ -222,6 +311,20 @@ async function resolveExpectedWorkspace(config: CwtoolsMcpConfig, server: Server
   }
 
   return { roots: [config.workspaceRoot], source: 'MCP process cwd' };
+}
+
+async function detectProxyWorkspace(config: CwtoolsMcpConfig, server: Server): Promise<WorkspaceProjectDetection> {
+  const expected = await resolveExpectedWorkspace(config, server);
+  if (expected.roots.length > 1) {
+    return {
+      kind: 'ambiguous',
+      strength: 'none',
+      evidence: [],
+      candidates: [...expected.roots].sort(),
+      reason: `Multiple MCP workspace roots are ambiguous for the CWTools bridge: ${expected.roots.join(', ')}`,
+    };
+  }
+  return detectWorkspaceProject(expected.roots[0] ?? config.workspaceRoot, () => undefined);
 }
 
 async function readClientWorkspaceRoots(server: Server): Promise<string[]> {

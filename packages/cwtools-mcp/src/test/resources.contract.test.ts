@@ -19,6 +19,27 @@ describe('MCP resources contract', () => {
     ]);
   });
 
+  it('hides all resources for unsupported projects and only diagnostics routing for CWT-only', () => {
+    const unsupported = createHost();
+    unsupported.projectSupported = false;
+    unsupported.projectKind = 'unsupported';
+    expect(listResources(unsupported)).to.deep.equal([]);
+
+    const cwt = createHost();
+    cwt.projectKind = 'cwt-only';
+    expect(listResources(cwt).map(resource => resource.uri)).to.deep.equal([
+      'cwtools://knowledge/diagnostic-routing',
+    ]);
+  });
+
+  it('rejects cached resource reads when the project is unsupported', async () => {
+    const host = createHost();
+    host.projectSupported = false;
+    host.projectKind = 'unsupported';
+    const result = await readResource(host, 'cwtools://knowledge/game');
+    expect(result.contents[0]?.text).to.include('project_not_supported');
+  });
+
   it('reads skills catalog as JSON resource content', async () => {
     const result = await readResource(createHost(), 'cwtools://skills/catalog');
     expect(result.contents[0]?.mimeType).to.equal('application/json');

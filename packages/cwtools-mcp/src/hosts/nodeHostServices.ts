@@ -29,25 +29,29 @@ import { RevalidationCoordinator } from './revalidation';
 import { detectExtensionCacheDir, detectExtensionRulesDir } from './vscodeCache';
 
 export function createNodeHostServices(config: CwtoolsMcpConfig): HostServices {
-  const workspaceRoot = path.resolve(config.workspaceRoot);
+  const requestedWorkspaceRoot = path.resolve(config.workspaceRoot);
+  const support = detectProjectSupport(requestedWorkspaceRoot, { game: config.game, gamePath: config.gamePath });
+  const workspaceRoot = path.resolve(support.supported ? support.matchedAt ?? requestedWorkspaceRoot : requestedWorkspaceRoot);
+  const enabled = support.supported || config.forceStart;
+  const projectKind = support.supported ? support.kind : config.forceStart ? 'mod' : support.kind;
+  const game = support.kind === 'cwt-only'
+    ? 'cwt'
+    : config.game ?? support.gameId ?? 'paradox';
   const allowlist = config.allowedTools.length > 0
     ? new Set(config.allowedTools)
     : new Set<string>(MCP_WRITE_TOOL_NAMES);
   const filesystem = new NodeFilesystemHost(workspaceRoot, config.enableWrites);
-  const support = detectProjectSupport(workspaceRoot);
-  const enabled = support.supported || config.forceStart;
-  // Fall back to the VS Code cwtools extension's globalStorage cache when --cache
-  // is omitted, so the MCP reuses the vanilla cache the extension already built.
-  const autoCache = config.cachePath ?? detectExtensionCacheDir(config.game);
-  const detectedRulesPath = detectExtensionRulesDir(autoCache, config.game);
+  // Generic and CWT-only hosts never borrow Stellaris rules/cache implicitly.
+  const autoCache = config.cachePath ?? detectExtensionCacheDir(game);
+  const detectedRulesPath = detectExtensionRulesDir(autoCache, game);
   const rulesConfigDirs = uniqueStrings([config.rulesPath, detectedRulesPath].filter((item): item is string => !!item));
   const lspProcess: LspProcessHost | undefined = enabled
     ? createLspProcessHost({
         workspaceRoot,
-        game: config.game,
+        game,
         serverPath: config.serverPath,
         cachePath: autoCache,
-        gamePath: config.gamePath,
+        gamePath: game === 'paradox' || game === 'cwt' ? undefined : config.gamePath,
         bundledRulesPath: config.rulesPath,
       })
     : undefined;
@@ -57,7 +61,7 @@ export function createNodeHostServices(config: CwtoolsMcpConfig): HostServices {
     console.error(`[cwtools-mcp] info: tool calls will be rejected (no language server) — ${support.reason} (pass --force-start to override)`);
   } else if (!support.supported) {
     console.error(`[cwtools-mcp] info: --force-start set; starting despite: ${support.reason}`);
-  } else if (support.matchedAt && support.matchedAt !== workspaceRoot) {
+  } else if (support.matchedAt && support.matchedAt !== requestedWorkspaceRoot) {
     console.error(`[cwtools-mcp] info: mod detected at ${support.matchedAt} (workspace = ${workspaceRoot})`);
   }
   if (enabled && !config.cachePath && autoCache) {
@@ -73,6 +77,10 @@ export function createNodeHostServices(config: CwtoolsMcpConfig): HostServices {
     allowedWriteTools: allowlist,
     projectSupported: enabled,
     projectSupportReason: support.reason,
+    projectKind,
+    projectGameId: game,
+    projectEvidence: [...support.markers],
+    projectCandidates: support.candidates ? [...support.candidates] : undefined,
     lsp,
     diagnostics: new LspDiagnosticsHost(
       lsp,
@@ -82,7 +90,7 @@ export function createNodeHostServices(config: CwtoolsMcpConfig): HostServices {
     filesystem,
     indexing: new ThinNodeIndexHost(workspaceRoot),
     rules: {
-      gameId: config.game,
+      gameId: game,
       configDirs: rulesConfigDirs,
       async readTextFile(filePath) {
         if (!fssync.existsSync(filePath)) return { content: '', hasBom: false, exists: false };
@@ -99,7 +107,7 @@ export function createNodeHostServices(config: CwtoolsMcpConfig): HostServices {
         return results;
       },
     },
-    vanillaCache: probeVanillaCache(workspaceRoot, { ...config, cachePath: autoCache }),
+    vanillaCache: game === 'cwt' ? undefined : probeVanillaCache(workspaceRoot, { ...config, game, cachePath: autoCache }),
     now: () => Date.now(),
     log: (level, message, data) => {
       if (level === 'debug') return;
@@ -131,7 +139,7 @@ function probeVanillaCache(workspaceRoot: string, config: CwtoolsMcpConfig): Van
   const rulesCacheRoot = resolveRulesCacheRoot({ cachePath: config.cachePath, workspaceRoot });
   const cacheFile = cacheFileName ? path.join(rulesCacheRoot, cacheFileName) : undefined;
   const cacheExists = !!cacheFile && fssync.existsSync(cacheFile);
-  const gamePathValid = !!config.gamePath && fssync.existsSync(config.gamePath);
+  const gamePathValid = !!cacheFileName && !!config.gamePath && fssync.existsSync(config.gamePath);
   if (cacheExists) {
     return { available: true, source: 'mod_plus_vanilla', cacheFile, reason: 'Loaded a pre-built vanilla cache.' };
   }
