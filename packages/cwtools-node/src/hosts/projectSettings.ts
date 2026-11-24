@@ -102,7 +102,47 @@ function asNonEmptyStringArray(value: unknown): string[] {
 }
 
 export function readIgnoredDiagnostics(workspaceRoot: string): string[] {
-  return asNonEmptyStringArray(getExtensionSetting(workspaceRoot, 'ai.ignoredDiagnostics'));
+  const current = asNonEmptyStringArray(getExtensionSetting(workspaceRoot, 'diagnostics.ignoredKeys'));
+  return current.length > 0
+    ? current
+    : asNonEmptyStringArray(getExtensionSetting(workspaceRoot, 'ai.ignoredDiagnostics'));
+}
+
+/** Remove one key from the existing flat VS Code JSONC setting without rewriting unrelated content. */
+export function removeIgnoredDiagnostic(workspaceRoot: string, key: string): void {
+  const file = path.join(workspaceRoot, '.vscode', 'settings.json');
+  const source = fs.readFileSync(file, 'utf8');
+  const settingKeys = ['stellarisLanguageServices.diagnostics.ignoredKeys', 'stellarisLanguageServices.ai.ignoredDiagnostics'];
+  for (const settingKey of settingKeys) {
+    const keyPattern = new RegExp('(\"' + settingKey.replace(/\./g, '\\.') + '\"\\s*:\\s*)\\[', 'm');
+    const match = keyPattern.exec(source);
+    if (!match || match.index === undefined) continue;
+    const arrayStart = match.index + match[0].length - 1;
+    let index = arrayStart;
+    let inString = false;
+    let escaped = false;
+    for (; index < source.length; index++) {
+      const char = source[index]!;
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (char === '\\') escaped = true;
+        else if (char === '"') inString = false;
+      } else if (char === '"') inString = true;
+      else if (char === ']') break;
+    }
+    if (source[index] !== ']') throw new Error('Diagnostic ignore setting array is unterminated.');
+    const rawArray = source.slice(arrayStart, index + 1);
+    const values = JSON.parse(rawArray) as unknown;
+    if (!Array.isArray(values) || values.some(value => typeof value !== 'string')) throw new Error('Diagnostic ignore setting must be a string array.');
+    const updated = values.filter(value => value !== key);
+    const next = source.slice(0, arrayStart) + JSON.stringify(updated) + source.slice(index + 1);
+    const temporary = file + '.tmp-' + process.pid + '-' + Date.now();
+    fs.writeFileSync(temporary, next, 'utf8');
+    fs.renameSync(temporary, file);
+    cache.delete(file);
+    return;
+  }
+  throw new Error('No supported flat diagnostic ignore setting was found; edit nested JSONC settings in the host UI.');
 }
 
 /**

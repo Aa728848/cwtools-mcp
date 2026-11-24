@@ -47,7 +47,7 @@ export function listResources(host?: HostServices) {
     {
       uri: 'cwtools://project/knowledge-manifest',
       name: 'CWTools project knowledge manifest',
-      description: 'Freshness, domains, counts, and fingerprints for the /init-generated semantic knowledge pack.',
+      description: 'Freshness, domains, counts, and fingerprints for the initialize_project semantic knowledge pack.',
       mimeType: 'application/json',
     },
     {
@@ -213,7 +213,7 @@ async function readResourceData(host: HostServices, uri: string): Promise<unknow
         : {
             status: 'missing',
             profilePath,
-            _hint: 'Run /init in the VS Code extension or create .cwtools/project/profile.json.',
+            _hint: 'Call initialize_project to generate the profile, then read this resource again.',
           };
     }
     case 'cwtools://project/knowledge-manifest': {
@@ -224,7 +224,7 @@ async function readResourceData(host: HostServices, uri: string): Promise<unknow
         : {
             status: 'missing',
             manifestPath,
-            _hint: 'Run /init in the VS Code extension and wait for the deep semantic phase.',
+            _hint: 'Call initialize_project and wait for the knowledge export to complete.',
           };
     }
     case 'cwtools://skills/catalog': {

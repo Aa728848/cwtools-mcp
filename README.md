@@ -7,7 +7,7 @@
 ## English
 
 [Model Context Protocol](https://modelcontextprotocol.io) server that
-exposes CWTools Paradox/Stellaris semantic tools and default-on whitelisted domain writes (project knowledge pack,
+exposes CWTools Paradox/Stellaris semantic tools and project initialization and default-on whitelisted domain writes (project knowledge pack,
 bounded project graph, syntax check, scope queries, definitions, references,
 diagnostics, scripted triggers/effects/enums, and seven Shader queries) to
 external agents such as Codex and Claude Code.
@@ -59,11 +59,7 @@ npm run test:contracts   # contract tests (schema drift, write policy, routing)
 npm run bundle           # single-file dist/cwtools-mcp.cjs via esbuild
 ```
 
-The MCP tool schema is **generated**, not handwritten: it is produced by
-`tools/generate-mcp-schema.cjs` in the
-[cwtools-vscode](https://github.com/Aa728848/cwtools-vscode) repository from the
-extension's tool definitions, and committed here under
-`packages/cwtools-shared/src/generated/mcpTools.ts`.
+The authoritative tool catalog lives at `packages/cwtools-shared/src/tools/catalog.ts` alongside its registry metadata. Shared contract tests require every disclosed tool to have a schema and a real dispatch path. Workspace-detection adapters remain generated and must not be hand-edited.
 
 ### Packages
 
@@ -71,9 +67,9 @@ Three packages with a strictly one-way dependency graph:
 
 | Package | Contains | Depends on |
 | --- | --- | --- |
-| `cwtools-shared` | Transport-free contracts, generated tool schemas, the transport-neutral tool call handler (`tools/callHandler`), and pure computations such as `tools/targetingWeights` | nothing |
+| `cwtools-shared` | Transport-free contracts, the authoritative tool catalog, the transport-neutral tool call handler (`tools/callHandler`), and pure computations such as `tools/targetingWeights` | nothing |
 | `cwtools-node` | Node host services: filesystem, standalone LSP process, native active-host client, revalidation, project detection | `cwtools-shared`, `chokidar`, `vscode-jsonrpc` — never the MCP SDK |
-| `cwtools-mcp` | MCP transport, generated schemas, resources, bridge proxy; re-exports the Node hosts for compatibility | `cwtools-shared`, `cwtools-node`, `@modelcontextprotocol/sdk` |
+| `cwtools-mcp` | MCP transport, shared schemas, resources, bridge proxy; re-exports the Node hosts for compatibility | `cwtools-shared`, `cwtools-node`, `@modelcontextprotocol/sdk` |
 
 A host that needs CWTools semantics without an MCP dependency imports `cwtools-node`
 and calls `createToolCallHandler` from `cwtools-shared`. Cancellation is part of the
@@ -96,7 +92,7 @@ single-file `cwtools-mcp.cjs` attached.
 
 ## 中文
 
-[Model Context Protocol](https://modelcontextprotocol.io) 服务，默认提供白名单领域写入，并把
+[Model Context Protocol](https://modelcontextprotocol.io) 服务，默认提供项目初始化与白名单领域写入，并把
 CWTools 的 Paradox/Stellaris 语义工具（项目知识包、有界项目语义图、语法检查、
 作用域查询、定义/引用、诊断、scripted triggers/effects/enums 和七个 Shader
 查询）开放给 Codex、Claude Code 等外部 Agent。
@@ -144,10 +140,7 @@ npm run test:contracts   # 合约测试（schema 漂移、写入策略、路由�
 npm run bundle           # esbuild 产出单文件 dist/cwtools-mcp.cjs
 ```
 
-MCP 工具 schema 为**生成物**，不手写：由
-[cwtools-vscode](https://github.com/Aa728848/cwtools-vscode) 仓库的
-`tools/generate-mcp-schema.cjs` 从扩展工具定义生成，提交在本仓库
-`packages/cwtools-shared/src/generated/mcpTools.ts`。
+权威工具目录位于 `packages/cwtools-shared/src/tools/catalog.ts`，与 registry 元数据共同维护。共享契约测试要求每个披露的工具都有 schema 和真实 dispatcher。工作区探测适配器仍是生成物，禁止手改。
 
 ### 包结构
 
@@ -155,9 +148,9 @@ MCP 工具 schema 为**生成物**，不手写：由
 
 | 包 | 内容 | 依赖 |
 | --- | --- | --- |
-| `cwtools-shared` | 与传输无关的契约、生成的工具 schema、传输无关的工具调用处理器（`tools/callHandler`）、以及 `tools/targetingWeights` 这类纯计算 | 无 |
+| `cwtools-shared` | 与传输无关的契约、权威工具目录、传输无关的工具调用处理器（`tools/callHandler`）、以及 `tools/targetingWeights` 这类纯计算 | 无 |
 | `cwtools-node` | Node 宿主服务：文件系统、独立 LSP 进程、原生活跃宿主客户端、复验、项目探测 | `cwtools-shared`、`chokidar`、`vscode-jsonrpc`——绝不依赖 MCP SDK |
-| `cwtools-mcp` | MCP 传输、生成 schema、资源、桥接代理；为兼容而重新导出 Node 宿主 | `cwtools-shared`、`cwtools-node`、`@modelcontextprotocol/sdk` |
+| `cwtools-mcp` | MCP 传输、共享 schema、资源、桥接代理；为兼容而重新导出 Node 宿主 | `cwtools-shared`、`cwtools-node`、`@modelcontextprotocol/sdk` |
 
 需要 CWTools 语义但不想引入 MCP 依赖的宿主，导入 `cwtools-node`，并从 `cwtools-shared` 取
 `createToolCallHandler`。取消是契约的一部分：每个走 LSP 的调用都接受 `AbortSignal`，中止会以

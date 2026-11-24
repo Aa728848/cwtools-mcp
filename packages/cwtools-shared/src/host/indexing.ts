@@ -22,6 +22,7 @@ export interface WorkspaceIndexEntry {
   container?: string;
   updatedAt?: number;
   fileVersion?: number;
+  references?: Array<{ context: string }>;
 }
 
 export interface LocalisationIndexQuery {

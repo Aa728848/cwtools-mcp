@@ -1,6 +1,8 @@
+export type { IdeHost } from 'cwtools-shared';
 export * from './hosts/gameInstall';
 export * from './hosts/lspProcessHost';
 export * from './hosts/nativeBridgeHttp';
+export * from './hosts/nativeBridgeIdeHost';
 export * from './hosts/nativeBridgeManifest';
 export * from './hosts/nativeBridgeLspHost';
 export * from './hosts/nodeHostServices';

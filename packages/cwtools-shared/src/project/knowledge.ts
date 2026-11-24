@@ -15,8 +15,20 @@ export interface QueryProjectKnowledgeArgs {
   limit?: number;
 }
 
-const KNOWLEDGE_DIR = path.join('.cwtools', 'project', 'knowledge');
-const CURRENT_KNOWLEDGE_SCHEMA_VERSION = 7;
+export const PROJECT_KNOWLEDGE_RELATIVE_DIR = path.join('.cwtools', 'project', 'knowledge');
+export const CURRENT_KNOWLEDGE_SCHEMA_VERSION = 7;
+export const PROJECT_KNOWLEDGE_DATABASE_FILE = 'knowledge.sqlite';
+export const PROJECT_KNOWLEDGE_MANIFEST_FILE = 'manifest.json';
+
+export function getProjectKnowledgeManifestPath(workspaceRoot: string): string {
+  return path.join(workspaceRoot, KNOWLEDGE_DIR, PROJECT_KNOWLEDGE_MANIFEST_FILE);
+}
+
+export async function readProjectKnowledgeManifestWithHost(host: HostServices): Promise<Record<string, unknown> | undefined> {
+  return readJson(host, getProjectKnowledgeManifestPath(host.workspaceRoot));
+}
+
+const KNOWLEDGE_DIR = PROJECT_KNOWLEDGE_RELATIVE_DIR;
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value)
@@ -58,7 +70,7 @@ export async function queryProjectKnowledgeWithHost(
         domains: [],
         evidence: [],
         unresolved: [],
-        _hint: 'Run /init in the VS Code extension and wait for the deep semantic phase to complete.',
+        _hint: 'Call initialize_project and wait for the project knowledge export to complete.',
       },
     };
   }
@@ -82,7 +94,7 @@ export async function queryProjectKnowledgeWithHost(
         foundSchemaVersion,
         currentSchemaVersion: CURRENT_KNOWLEDGE_SCHEMA_VERSION,
         staleReasons: ['schema_version_obsolete'],
-        _hint: 'Run /init or reopen the project and wait for the automatic full rebuild. Old database schemas are not queried.',
+        _hint: 'Call initialize_project in full mode to rebuild obsolete knowledge. Old database schemas are not queried.',
       },
     };
   }

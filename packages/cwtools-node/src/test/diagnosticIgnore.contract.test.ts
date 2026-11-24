@@ -4,7 +4,7 @@ import * as os from 'os';
 import * as path from 'path';
 import type { DiagnosticsQueryResult } from 'cwtools-shared';
 import {
-  applyDiagnosticIgnoreList, honouredIgnoredDiagnostics, readIgnoredDiagnostics, resolveLocalisationLanguages,
+  applyDiagnosticIgnoreList, honouredIgnoredDiagnostics, readIgnoredDiagnostics, removeIgnoredDiagnostic, resolveLocalisationLanguages,
 } from '../hosts/projectSettings';
 
 function tmpWorkspace(settings?: string): string {
@@ -40,6 +40,21 @@ describe('MCP diagnostic ignore whitelist contract', () => {
     expect(honouredIgnoredDiagnostics(ws, true)).to.deep.equal(['CW274']);
     // A committed settings file must not be able to hide errors from an agent.
     expect(honouredIgnoredDiagnostics(ws, false)).to.deep.equal([]);
+  });
+
+  it('prefers the non-AI diagnostics key and removes entries without rewriting JSONC comments', () => {
+    const ws = tmpWorkspace(`{
+      // preserve this comment
+      "stellarisLanguageServices.diagnostics.ignoredKeys": ["CW274", "unused"],
+      "stellarisLanguageServices.ai.ignoredDiagnostics": ["legacy"],
+      "editor.tabSize": 4
+    }`);
+    expect(readIgnoredDiagnostics(ws)).to.deep.equal(['CW274', 'unused']);
+    removeIgnoredDiagnostic(ws, 'CW274');
+    expect(readIgnoredDiagnostics(ws)).to.deep.equal(['unused']);
+    const source = fs.readFileSync(path.join(ws, '.vscode', 'settings.json'), 'utf8');
+    expect(source).to.include('preserve this comment');
+    expect(source).to.include('"editor.tabSize": 4');
   });
 
   it('returns [] when no settings file or key is present', () => {

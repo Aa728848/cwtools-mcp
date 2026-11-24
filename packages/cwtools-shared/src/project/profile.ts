@@ -19,10 +19,10 @@ export interface QueryProjectProfileArgs {
 }
 
 export interface ProjectProfile {
-  schemaVersion: 4;
+  schemaVersion: typeof PROJECT_PROFILE_SCHEMA_VERSION;
   generatedAt: string;
   workspaceRoot: string;
-  workspaceKind: string;
+  workspaceKind: 'paradox_mod' | 'extension_source' | 'mixed' | 'generic';
   projectName: string;
   game: {
     id: string;
@@ -38,12 +38,31 @@ export interface ProjectProfile {
     remoteFileId?: string;
     dependencies?: string[];
   };
-  keyDirectories: Array<{
-    key: string;
-    path: string;
-    exists: boolean;
-    fileCount?: number;
-  }>;
+  compatibility?: {
+    supportedVersion?: string;
+    declaredDependencies: Array<{ name: string; source: string }>;
+    possibleSoftDependencies: Array<{
+      idOrPrefix: string;
+      evidence: string;
+      confidence: 'heuristic';
+      sources?: Array<'placeholder' | 'ignored_diagnostic' | 'definition_stack' | 'unresolved_id'>;
+      sampleIds?: string[];
+    }>;
+    dependencyRoots: Array<{ name: string; root?: string; status: 'resolved' | 'unresolved'; source: string }>;
+    loadOrder: {
+      source: 'descriptor_only' | 'launcher_or_lsp';
+      confidence: 'partial' | 'active';
+      orderedLayers: string[];
+      warnings: string[];
+    };
+    coverage: {
+      unresolvedIdInference: 'not_available' | 'available';
+      truncated: boolean;
+      evidenceSources?: string[];
+      unavailableSources?: string[];
+    };
+  };
+  keyDirectories: Array<{ key: string; path: string; exists: boolean; fileCount?: number }>;
   localisation: {
     roots: string[];
     languages: string[];
@@ -52,15 +71,36 @@ export interface ProjectProfile {
     encodingByLanguage?: Record<string, string>;
     sampleFiles: string[];
   };
-  identifiers: Record<string, unknown>;
-  routing: Record<string, unknown>;
-  validation: Record<string, unknown>;
-  freshness?: Record<string, unknown>;
+  identifiers: {
+    namespaces: string[];
+    namespaceDetails?: Array<{
+      name: string;
+      origin: 'workspace_owned' | 'vanilla_override' | 'compatibility' | 'external';
+      files: string[];
+      evidence: string;
+    }>;
+    variablePrefixes: string[];
+    byType: Record<string, string[]>;
+    byTypeCounts?: Record<string, number>;
+  };
+  routing: { preferredReadTools: string[]; avoidPatterns: string[] };
+  validation: {
+    lspReady: 'unknown' | 'ready' | 'not_ready';
+    indexStatus: 'unknown' | 'ready' | 'partial' | 'indexing' | 'idle' | 'unavailable';
+    vanillaCache: 'unknown' | 'configured' | 'missing';
+    vanillaCacheEvidence?: string;
+  };
+  freshness?: {
+    knowledgeStatus?: 'ready' | 'partial' | 'stale' | 'unavailable';
+    knowledgeGeneratedAt?: string;
+    staleReasons?: string[];
+  };
   warnings?: string[];
   guidanceCards: Partial<Record<ProjectGuidanceCard, string>>;
   efficiencyHints: string[];
-  [key: string]: unknown;
 }
+
+export const PROJECT_PROFILE_SCHEMA_VERSION = 4 as const;
 
 export const PROJECT_PROFILE_RELATIVE_PATH = path.join('.cwtools', 'project', 'profile.json');
 
@@ -71,7 +111,7 @@ export function getProjectProfilePath(workspaceRoot: string): string {
 export function isProjectProfile(value: unknown): value is ProjectProfile {
   return !!value
     && typeof value === 'object'
-    && (value as { schemaVersion?: unknown }).schemaVersion === 4
+    && (value as { schemaVersion?: unknown }).schemaVersion === PROJECT_PROFILE_SCHEMA_VERSION
     && typeof (value as { projectName?: unknown }).projectName === 'string';
 }
 
@@ -147,7 +187,7 @@ export async function queryProjectProfileWithHost(
         data: {
           status: 'missing',
           profilePath,
-          _hint: 'Run /init in the VS Code extension or create .cwtools/project/profile.json, then retry.',
+          _hint: 'Call initialize_project to generate .cwtools/project/profile.json, then retry.',
         },
       };
     }

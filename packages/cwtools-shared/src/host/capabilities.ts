@@ -84,6 +84,8 @@ export const REQUIRED_BACKEND_COMMANDS: readonly string[] = [
   'cwtools.ai.getDiagnosticsFresh',
   'cwtools.ai.getAllDiagnostics',
   'cwtools.ai.revalidateFiles',
+  // Candidate overlay validation before a domain write is committed.
+  'cwtools.ai.validateOverlay',
   // Completion, symbols and navigation.
   'cwtools.ai.getCompletionContext',
   'cwtools.ai.getScopeAtPosition',
@@ -98,6 +100,8 @@ export const REQUIRED_BACKEND_COMMANDS: readonly string[] = [
   'cwtools.ai.compareDefinitionWithVanilla',
   'cwtools.ai.parseFragment',
   'cwtools.ai.queryProjectKnowledgeDb',
+  'cwtools.ai.exportProjectKnowledge',
+  'cwtools.ai.queryOverrideModes',
   // Localisation.
   'cwtools.ai.queryLocalisationAudit',
   // Scripted types and enums.

@@ -1,5 +1,5 @@
-import { listMcpToolSchemas, type McpToolSchema } from 'cwtools-shared';
+import { listMcpToolSchemas, type McpToolSchema, type ToolSurfaceOptions } from 'cwtools-shared';
 
-export function listRegisteredTools(options?: { includeWrites?: boolean; cwtOnly?: boolean }): McpToolSchema[] {
+export function listRegisteredTools(options?: ToolSurfaceOptions): McpToolSchema[] {
   return listMcpToolSchemas(options);
 }

@@ -9,9 +9,14 @@ import {
   searchRuleCapabilitiesWithHost,
 } from '../knowledge/rules';
 import { queryProjectProfileWithHost } from '../project/profile';
+import { initializeProjectWithHost } from '../project/init';
 import { queryProjectKnowledgeWithHost } from '../project/knowledge';
+import { extractArchetypeWithHost, instantiateArchetypeWithHost } from './archetypeTools';
+import { findAssetCandidatesWithHost, findScopeBridgeWithHost, getIgnoredDiagnosticsWithHost, queryInterfaceKnowledgeWithHost, removeIgnoredDiagnosticWithHost, verifyPdxIdentifierWithHost } from './domainTools';
 import { writeLocalisationWithHost } from '../safety/localisation';
 import { getPdxBlockWithHost } from './pdxBlock';
+import { candidateTransactionWithHost, typedPdxWriteWithHost } from './pdxWrites';
+import { convertAudioWithHost, convertImageToDdsWithHost, deployModAssetWithHost } from './mediaWrites';
 import { executeTargetingWeightQuery } from './targetingWeights';
 import { toolUnavailable, type SharedToolResult } from './schema';
 import {
@@ -104,11 +109,17 @@ export const defaultSharedToolDispatcher: SharedToolDispatcher = async (host, na
     executeLspTool(host, command, args, unavailableNextStep, signal);
   throwIfAborted(signal);
   switch (name) {
+    case 'initialize_project':
+      return initializeProjectWithHost(host, args, context);
+
     case 'query_project_profile':
       return queryProjectProfileWithHost(host, args);
 
     case 'query_project_knowledge':
       return queryProjectKnowledgeWithHost(host, args);
+
+    case 'query_interface_knowledge':
+      return queryInterfaceKnowledgeWithHost(host, args);
 
     case 'query_workspace_index': {
       if (!host.indexing) {
@@ -272,6 +283,19 @@ export const defaultSharedToolDispatcher: SharedToolDispatcher = async (host, na
       };
     }
 
+    case 'get_lsp_status':
+      return lspTool(
+        'cwtools.ai.getValidationStatus',
+        [],
+        'Start the CWTools LSP process before requesting its status.',
+      );
+
+    case 'get_ignored_diagnostics':
+      return getIgnoredDiagnosticsWithHost(host);
+
+    case 'remove_ignored_diagnostic':
+      return removeIgnoredDiagnosticWithHost(host, args);
+
     case 'get_diagnostics':
       {
         const diagnostics = await host.diagnostics.getDiagnostics(args, signal ? { signal } : undefined);
@@ -370,6 +394,13 @@ export const defaultSharedToolDispatcher: SharedToolDispatcher = async (host, na
         scope: typeof args.scope === 'string' ? args.scope : undefined,
       });
 
+    case 'query_override_modes':
+      return lspTool(
+        'cwtools.ai.queryOverrideModes',
+        [typeof args.path === 'string' ? args.path : '', args.limit ?? 250],
+        'Start the CWTools LSP process before querying path override modes.',
+      );
+
     case 'query_cwt_schema':
       return queryCwtSchemaWithHost(host, {
         target: typeof args.target === 'string' ? args.target : undefined,
@@ -389,10 +420,22 @@ export const defaultSharedToolDispatcher: SharedToolDispatcher = async (host, na
         limit: typeof args.limit === 'number' ? args.limit : undefined,
       });
 
+    case 'find_scope_bridge':
+      return findScopeBridgeWithHost(host, args);
+
+    case 'verify_pdx_identifier':
+      return verifyPdxIdentifierWithHost(host, args);
+
     case 'explain_scope':
       return explainScopeWithHost(host, {
         scope: String(args.scope ?? ''),
       });
+
+    case 'extract_archetype_slots':
+      return extractArchetypeWithHost(host, args);
+
+    case 'instantiate_archetype':
+      return instantiateArchetypeWithHost(host, args);
 
     case 'parse_pdx_fragment':
       return lspTool(
@@ -400,6 +443,12 @@ export const defaultSharedToolDispatcher: SharedToolDispatcher = async (host, na
         [String(args.code ?? '')],
         'Start the CWTools LSP process or connect this host to an existing language server.',
       );
+
+    case 'find_sprite_candidates':
+      return findAssetCandidatesWithHost(host, args, 'sprite');
+
+    case 'find_sound_candidates':
+      return findAssetCandidatesWithHost(host, args, 'sound');
 
     case 'query_scripted_effects':
       return lspTool(
@@ -516,24 +565,31 @@ export const defaultSharedToolDispatcher: SharedToolDispatcher = async (host, na
         'Start the CWTools LSP process and wait for the shader model to load before comparing with vanilla.',
       );
 
-    case 'get_ide_context':
-    case 'open_in_visual_editor':
-      return toolUnavailable(
-        name,
-        `${name} requires the active VS Code extension bridge (default mode without --standalone).`,
-        ['Open the project in VS Code / Cursor / Antigravity with the CWTools extension active and connect via bridge mode.'],
-      );
+    case 'get_ide_context': {
+      if (!host.ide) return toolUnavailable(name, 'IDE context requires an active editor host.');
+      return { ok: true, status: 'ready', source: 'cwtools-ide-host', data: await host.ide.getContext(args, context) };
+    }
+
+    case 'open_in_visual_editor': {
+      if (!host.ide) return toolUnavailable(name, 'Visual editors require an active editor host.');
+      return { ok: true, status: 'ready', source: 'cwtools-ide-host', data: await host.ide.openVisualEditor(args, context) };
+    }
+
+    case 'capture_gui_preview': {
+      if (!host.ide?.captureGuiPreview) return toolUnavailable(name, 'GUI capture requires an active editor host with a GUI preview.');
+      return { ok: true, status: 'ready', source: 'cwtools-ide-host', data: await host.ide.captureGuiPreview(args, context) };
+    }
 
     case 'typed_pdx_write':
+      return typedPdxWriteWithHost(host, args, context);
     case 'candidate_transaction':
+      return candidateTransactionWithHost(host, args, context);
     case 'convert_image_to_dds':
+      return convertImageToDdsWithHost(host, args, context);
     case 'convert_audio':
+      return convertAudioWithHost(host, args, context);
     case 'deploy_mod_asset':
-      return toolUnavailable(
-        name,
-        `${name} requires the active VS Code extension bridge started with --allow-domain-writes (or --enable-writes).`,
-        ['Connect to the active VS Code extension bridge with --allow-domain-writes enabled.'],
-      );
+      return deployModAssetWithHost(host, args, context);
 
     default:
       return {

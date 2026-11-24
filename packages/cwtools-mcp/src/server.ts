@@ -58,6 +58,7 @@ export function listServerTools(host: HostServices) {
   return listRegisteredTools({
     includeWrites: host.writesEnabled === true && host.readonlyMode === false,
     cwtOnly: host.projectKind === 'cwt-only',
+    capabilities: host.capabilities,
   });
 }
 

@@ -145,26 +145,11 @@ using the active extension host's loaded state.
 
 ### Tools
 
-The MCP surface exposes generated CWTools semantic tools plus six whitelisted
-domain-write tools by default. The legacy `--enable-writes` /
-`--allow-domain-writes` flags remain accepted but are no longer required.
+The shared catalog covers CWTools semantic, project graph, localisation, asset, scope, Archetype, navigation, diagnostic, and Shader queries. `initialize_project` creates or incrementally refreshes the V4 profile and V7 SQLite knowledge pack in both Bridge and Standalone modes.
 
-- `query_types`
-- `query_rules`
-- `query_scope`
-- `get_diagnostics`
-- `explore_pdx_project` for a bounded live semantic graph with dependency edges and freshness
-- `query_workspace_index`
-- `query_localisation_index`
-- `get_pdx_block`
-- completion, document/workspace symbols, definition and reference lookup
-- deep semantic queries for scripted effects/triggers, enums, static modifiers,
-  variables, and entity info
+Default whitelisted write/initialization tools are `write_localisation`, `typed_pdx_write`, `candidate_transaction`, `convert_image_to_dds`, `convert_audio`, `deploy_mod_asset`, `remove_ignored_diagnostic`, and `initialize_project`. Existing path containment, locks, binary-safe asset deployment, cancellation, and validation prechecks apply. The legacy `--enable-writes` / `--allow-domain-writes` flags remain accepted but are no longer required.
 
-Default domain writes are `write_localisation`, `typed_pdx_write`,
-`candidate_transaction`, `convert_image_to_dds`, `convert_audio`, and
-`deploy_mod_asset`. Existing path containment, locks, and validation prechecks still
-apply; non-whitelisted writes remain unavailable. Re-run diagnostics after writes.
+`get_ide_context`, `open_in_visual_editor`, and `capture_gui_preview` are disclosed only when a real editor host supports them. Standalone mode does not advertise these IDE-only operations.
 
 ---
 
@@ -184,7 +169,7 @@ bridge，并复用该宿主中的：
 - 当前工作区根目录；
 - IDE Problems 面板诊断；
 - rules/cache/localisation/用户设置；
-- 共享索引和 AI 只读工具。
+- 共享索引和语义工具。
 
 这样可以降低内存占用，并让 MCP 诊断数量与 IDE 保持一致。
 
@@ -300,20 +285,8 @@ cwtools-mcp --standalone --workspace /path/to/mod --game stellaris --rules "/pat
 
 ### 工具
 
-MCP 入口默认提供生成的 CWTools 语义工具和六个白名单领域写入工具。
-兼容参数 `--enable-writes` / `--allow-domain-writes` 仍可使用，但不再是启用前提。
+共享目录覆盖 CWTools 语义、项目图、本地化、资产、作用域、Archetype、导航、诊断与 Shader 查询。`initialize_project` 在 Bridge 与 Standalone 中均可创建或增量刷新 V4 画像和 V7 SQLite 知识库。
 
-- `query_types`
-- `query_rules`
-- `query_scope`
-- `get_diagnostics`
-- `explore_pdx_project`：返回带依赖边与 freshness 的有界 live 语义图
-- `query_workspace_index`
-- `query_localisation_index`
-- `get_pdx_block`
-- 补全、document/workspace symbols、定义和引用查询
-- scripted effects/triggers、enums、static modifiers、variables、entity info 等深层语义查询
+默认白名单写入/初始化工具包括 `write_localisation`、`typed_pdx_write`、`candidate_transaction`、`convert_image_to_dds`、`convert_audio`、`deploy_mod_asset`、`remove_ignored_diagnostic` 与 `initialize_project`。既有路径包含、锁、二进制资产安全复制、取消与写入预检继续生效。兼容参数 `--enable-writes` / `--allow-domain-writes` 仍接受，但不再是前提。
 
-默认写入工具为 `write_localisation`、`typed_pdx_write`、`candidate_transaction`、
-`convert_image_to_dds`、`convert_audio` 和 `deploy_mod_asset`。既有路径包含性、
-锁和写入预检仍然生效，非白名单写入继续拒绝。写入后应重新调用诊断。
+`get_ide_context`、`open_in_visual_editor` 与 `capture_gui_preview` 只在真实编辑器宿主支持时披露；Standalone 不广告这些 IDE 专属操作。

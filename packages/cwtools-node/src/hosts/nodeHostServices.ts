@@ -1,13 +1,16 @@
 import * as fs from 'fs/promises';
 import * as fssync from 'fs';
 import * as path from 'path';
+import { spawn } from 'child_process';
 import {
   type DirectoryEntry,
+  type CwtoolsHostCapability,
   type DiagnosticRecord,
   type DiagnosticsHost,
   type DiagnosticsQueryResult,
   type FilesystemHost,
   type HostServices,
+  type IdeHost,
   type IndexHost,
   type IndexQueryResult,
   type LocalisationIndexEntry,
@@ -26,7 +29,7 @@ import { createLspProcessHost, pathToFileUri, resolveRulesCacheRoot, type LspPro
 import type { LspHost as InjectedLspHost } from 'cwtools-shared';
 import { detectGameInstall } from './gameInstall';
 import { detectProjectSupport } from './projectDetect';
-import { applyDiagnosticIgnoreList, honouredIgnoredDiagnostics } from './projectSettings';
+import { applyDiagnosticIgnoreList, honouredIgnoredDiagnostics, readIgnoredDiagnostics, removeIgnoredDiagnostic } from './projectSettings';
 import { RevalidationCoordinator } from './revalidation';
 import { detectExtensionCacheDir, detectExtensionRulesDir } from './vscodeCache';
 
@@ -46,6 +49,8 @@ export interface CwtoolsNodeHostOptions {
   cachePath?: string;
   // Explicit CWT rules *directory* overriding auto-detection (a .zip is rejected).
   rulesPath?: string;
+  imageMagickPath?: string;
+  ffmpegPath?: string;
   // Diagnostic noise controls: error codes and file names to suppress, plus how
   // localisation diagnostics are filtered. Vanilla errors are always off.
   errorIgnoreCodes?: readonly string[];
@@ -67,6 +72,7 @@ export interface CwtoolsNodeHostOptions {
   honorWorkspaceIgnoreList?: boolean;
   /** Reuse an already-running native host instead of spawning another process. */
   lspHost?: InjectedLspHost;
+  ideHost?: IdeHost;
   readyAtMs?: number;
   debug?: boolean;
   logger?: (level: 'debug' | 'info' | 'warn' | 'error', message: string, data?: unknown) => void;
@@ -132,11 +138,18 @@ export function createNodeHostServices(config: CwtoolsNodeHostOptions): HostServ
   }
   // Surface the resolved workspace so it's clear which mod is analysed.
   report(`workspace = ${workspaceRoot}${config.workspaceRoot === process.cwd() ? ' (inherited cwd)' : ''}`);
+  const capabilities = new Set<CwtoolsHostCapability>(['project_init', 'archetypes', 'diagnostic_settings', 'domain_writes']);
+  if (config.ideHost) {
+    capabilities.add('ide_context');
+    capabilities.add('visual_editor');
+    capabilities.add('gui_capture');
+  }
   return {
     workspaceRoot,
     readonlyMode: !config.enableWrites,
     writesEnabled: config.enableWrites,
     allowedWriteTools: allowlist,
+    capabilities,
     projectSupported: enabled,
     projectSupportReason: support.reason,
     projectKind,
@@ -151,6 +164,16 @@ export function createNodeHostServices(config: CwtoolsNodeHostOptions): HostServ
       enabled ? new RevalidationCoordinator(lsp, workspaceRoot, () => config.readyAtMs ?? lspProcess?.readyAtMs) : undefined,
     ),
     filesystem,
+    ide: config.ideHost,
+    diagnosticSettings: {
+      getIgnoredKeys: async () => readIgnoredDiagnostics(workspaceRoot),
+      removeIgnoredKey: async key => { removeIgnoredDiagnostic(workspaceRoot, key); },
+    },
+    externalCommands: { run: runExternalCommand },
+    mediaTools: {
+      imageMagickPath: config.imageMagickPath,
+      ffmpegPath: config.ffmpegPath,
+    },
     indexing: new ThinNodeIndexHost(workspaceRoot),
     rules: {
       gameId: game,
@@ -191,6 +214,31 @@ export function createNodeHostServices(config: CwtoolsNodeHostOptions): HostServ
       }
     },
   };
+}
+
+function runExternalCommand(request: {
+  command: string;
+  args: string[];
+  timeoutMs: number;
+  signal?: AbortSignal;
+}): Promise<{ success: boolean; stdout: string; stderr: string; message?: string }> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(request.command, request.args, { shell: false, windowsHide: true, signal: request.signal });
+    let stdout = '';
+    let stderr = '';
+    const append = (current: string, chunk: Buffer): string => (current + chunk.toString('utf8')).slice(-1_000_000);
+    child.stdout.on('data', (chunk: Buffer) => { stdout = append(stdout, chunk); });
+    child.stderr.on('data', (chunk: Buffer) => { stderr = append(stderr, chunk); });
+    const timer = setTimeout(() => { child.kill(); }, request.timeoutMs);
+    child.on('error', error => {
+      clearTimeout(timer);
+      reject(error);
+    });
+    child.on('close', code => {
+      clearTimeout(timer);
+      resolve({ success: code === 0, stdout, stderr, message: code === 0 ? undefined : 'Process exited with code ' + String(code) });
+    });
+  });
 }
 
 function uniqueStrings(values: string[]): string[] {
@@ -438,6 +486,17 @@ class NodeFilesystemHost implements FilesystemHost {
     const resolved = this.resolve(filePath);
     await fs.mkdir(path.dirname(resolved), { recursive: true });
     await fs.writeFile(resolved, content, 'utf8');
+  }
+
+  async readBinaryFile(filePath: string): Promise<Buffer> {
+    return fs.readFile(this.resolve(filePath));
+  }
+
+  async writeBinaryFile(filePath: string, content: Buffer): Promise<void> {
+    if (!this.writesEnabled) throw new Error('writes_disabled');
+    const resolved = this.resolve(filePath);
+    await fs.mkdir(path.dirname(resolved), { recursive: true });
+    await fs.writeFile(resolved, content);
   }
 
   async list(dirPath: string): Promise<DirectoryEntry[]> {

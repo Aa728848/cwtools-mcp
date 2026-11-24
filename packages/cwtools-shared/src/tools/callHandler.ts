@@ -57,7 +57,7 @@ export function createToolCallHandler(
     throwIfAborted(context?.signal);
     const writesEnabled = host.writesEnabled === true && host.readonlyMode === false;
     const cwtOnly = host.projectKind === 'cwt-only';
-    if (!isMcpToolAvailable(name, { includeWrites: writesEnabled, cwtOnly })) {
+    if (!isMcpToolAvailable(name, { includeWrites: writesEnabled, cwtOnly, capabilities: host.capabilities })) {
       return {
         ok: false,
         status: 'denied',
