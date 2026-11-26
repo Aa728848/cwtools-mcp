@@ -21,6 +21,10 @@
       "types": "./dist/catalog.d.ts",
       "default": "./dist/catalog.js"
     },
+    "./editors": {
+      "types": "./dist/editors/index.d.ts",
+      "default": "./dist/editors/index.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [

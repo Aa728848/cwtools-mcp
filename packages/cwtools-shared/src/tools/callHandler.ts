@@ -66,7 +66,7 @@ export function createToolCallHandler(
           code: cwtOnly ? 'tool_not_available_in_cwt_only' : 'tool_not_available',
           message: cwtOnly
             ? `Tool '${name}' requires a full Paradox game model and is not available in a CWT-only workspace.`
-            : `Tool '${name}' is not available under the current host write policy.`,
+            : `Tool '${name}' is not available in the current workspace or host capabilities.`,
         },
       };
     }

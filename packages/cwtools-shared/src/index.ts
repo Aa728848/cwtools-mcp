@@ -1,4 +1,5 @@
 export * from './tools/catalog';
+export * from './editors';
 export * from './generated/workspaceGameDetection';
 export * from './host/capabilities';
 export * from './host/diagnostics';
@@ -29,6 +30,8 @@ export * from './tools/domainTools';
 export * from './tools/mcpSchema';
 export * from './tools/mediaWrites';
 export * from './tools/pdxWriteCore';
+export * from './tools/guiDraft';
+export * from './tools/shipGalaxyDraft';
 export * from './tools/pdxWrites';
 export * from './tools/names';
 export * from './tools/pdxBlock';

@@ -1764,6 +1764,44 @@ export const GENERATED_MCP_TOOLS = [
   },
   {
     "tool": {
+      "name": "get_semantic_catalog",
+      "description": "Read the active CWTools semantic rule and definition-type catalog, including directory mappings used by visual relationship graphs. Returns live LSP data with explicit readiness; does not guess game identifiers.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "names": {
+            "type": "array",
+            "items": { "type": "string" },
+            "maxItems": 4000,
+            "description": "Optional rule aliases to return."
+          },
+          "definitionNames": {
+            "type": "array",
+            "items": { "type": "string" },
+            "maxItems": 4000,
+            "description": "Optional definition-type filter for bounded visual graph requests."
+          },
+          "includeDirectoryPaths": {
+            "type": "boolean",
+            "description": "Whether to include the potentially large directory catalog. Defaults to true."
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    "registry": {
+      "name": "get_semantic_catalog",
+      "isWrite": false,
+      "isReadOnly": true,
+      "effect": "workspace_read",
+      "riskLevel": 0,
+      "concurrencyClass": "lsp-limited",
+      "mcpSupportsCwtOnly": false
+    }
+  },
+  {
+    "tool": {
       "name": "get_entity_info",
       "description": "Get deep structural info from the CWTools cache, including referenced types, variables, classified rule blocks, and saved scopes. Use it to understand file dependencies before modification.",
       "inputSchema": {
@@ -2220,6 +2258,74 @@ export const GENERATED_MCP_TOOLS = [
       "riskLevel": 0,
       "concurrencyClass": "parallel",
       "mcpSupportsCwtOnly": false
+    }
+  },
+  {
+    "tool": {
+      "name": "gui_draft",
+      "description": "Edit one .gui element through a bounded shared candidate. begin returns element line identities; update changes position/size only after AST revalidation; validate/commit reuse overlay diagnostics, hashes, locks and rollback; discard/status never write. Requires explicit gui_draft write grant.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": { "type": "string", "enum": ["begin", "update", "validate", "commit", "discard", "status"] },
+          "filePath": { "type": "string", "description": "Workspace-contained .gui file for begin/update." },
+          "transactionId": { "type": "string" },
+          "line": { "type": "integer", "minimum": 1, "description": "Exact element block line returned by begin." },
+          "x": { "type": "number" }, "y": { "type": "number" },
+          "width": { "type": "number", "minimum": 0 }, "height": { "type": "number", "minimum": 0 },
+          "validationPassed": { "type": "boolean" }
+        },
+        "required": ["action"],
+        "additionalProperties": false
+      }
+    },
+    "registry": {
+      "name": "gui_draft", "isWrite": true, "isReadOnly": false, "effect": "workspace_write", "riskLevel": 2,
+      "concurrencyClass": "per-file-write", "mcpSupportsCwtOnly": false
+    }
+  },
+  {
+    "tool": {
+      "name": "ship_design_draft",
+      "description": "Edit one global ship design (.txt) through a bounded shared candidate. begin parses the file and stages a hashed baseline; apply runs a ship-design operation (set-field, set/remove section, set/replace component, required components, create/duplicate/delete design) against the staged candidate and stages the result chained to the base hash, so stale edits are rejected; validate/commit reuse overlay diagnostics, hashes, locks and rollback; discard/status never write. Requires explicit ship_design_draft write grant; candidate_transaction is not implied.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": { "type": "string", "enum": ["begin", "apply", "validate", "commit", "discard", "status"] },
+          "filePath": { "type": "string", "description": "Workspace-contained .txt file for begin/apply." },
+          "transactionId": { "type": "string" },
+          "operation": { "type": "object", "description": "A ShipDesignOperation: { kind, ... } operating on the parsed design/section ids returned by begin." },
+          "validationPassed": { "type": "boolean" }
+        },
+        "required": ["action"],
+        "additionalProperties": false
+      }
+    },
+    "registry": {
+      "name": "ship_design_draft", "isWrite": true, "isReadOnly": false, "effect": "workspace_write", "riskLevel": 2,
+      "concurrencyClass": "per-file-write", "mcpSupportsCwtOnly": false
+    }
+  },
+  {
+    "tool": {
+      "name": "static_galaxy_draft",
+      "description": "Edit a static galaxy scenario (.txt) through a bounded shared candidate. begin parses the scenarios and stages a hashed baseline; apply runs a StaticGalaxyEditRequest (move, position update, nebula radius, hyperlane link/unlink/insert, spray/erase systems) against the staged candidate and stages the result chained to the base hash, so stale spans are rejected; validate/commit reuse overlay diagnostics, hashes, locks and rollback; discard/status never write. Requires explicit static_galaxy_draft write grant; candidate_transaction is not implied.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": { "type": "string", "enum": ["begin", "apply", "validate", "commit", "discard", "status"] },
+          "filePath": { "type": "string", "description": "Workspace-contained .txt file for begin/apply." },
+          "transactionId": { "type": "string" },
+          "request": { "type": "object", "description": "A StaticGalaxyEditRequest: { kind, ... } targeting nodeKeys returned by begin." },
+          "validationPassed": { "type": "boolean" }
+        },
+        "required": ["action"],
+        "additionalProperties": false
+      }
+    },
+    "registry": {
+      "name": "static_galaxy_draft", "isWrite": true, "isReadOnly": false, "effect": "workspace_write", "riskLevel": 2,
+      "concurrencyClass": "per-file-write", "mcpSupportsCwtOnly": false
     }
   },
   {

@@ -89,7 +89,7 @@ const SOURCE = 'cwtools-domain-writes';
 const MAX_FILE_CHARS = 2_000_000;
 const MAX_CANDIDATE_FILES = 100;
 const MAX_CANDIDATE_BYTES = 5 * 1024 * 1024;
-const VALIDATION_TIMEOUT_MS = 15_000;
+const VALIDATION_TIMEOUT_MS = 60_000;
 const LOCK_TIMEOUT_MS = 30_000;
 const FRESHNESS_TIMEOUT_MS = 8_000;
 const FRESHNESS_POLL_MS = 100;
@@ -470,8 +470,8 @@ async function validateOverlayOnHost(
   if (record.status === 'unavailable' || asRecordValue(record.error).code === 'lsp_unavailable') {
     return { infrastructureError: 'Overlay validation is not available in this host.' };
   }
-  if (record.ok !== true || !Array.isArray(record.files)) {
-    return { infrastructureError: typeof record.error === 'string' ? record.error : 'Overlay validation returned an invalid response.' };
+  if (!Array.isArray(record.files) || (record.ok !== true && record.ok !== false)) {
+    return { infrastructureError: typeof record.error === 'string' ? record.error : 'Overlay validation returned an invalid response (' + typeof response + '): ' + (typeof response === 'string' ? response : JSON.stringify(response)).slice(0, 2000) };
   }
   if (record.files.length !== files.length) {
     return { infrastructureError: 'Overlay validation returned ' + record.files.length + ' file result(s) for ' + files.length + ' candidate(s).' };
@@ -486,6 +486,10 @@ async function validateOverlayOnHost(
       return { infrastructureError: 'Overlay validation returned an unknown, missing, or duplicate URI: ' + (uri ?? '<missing>') + '.' };
     }
     returned.add(uri);
+    if (entry.ok !== true && (typeof entry.error === 'string' || typeof entry.status === 'string')) {
+      normalized.push({ uri, ok: false, diagnostics: [], error: typeof entry.error === 'string' ? entry.error : String(entry.status) });
+      continue;
+    }
     if (!Array.isArray(entry.diagnostics)) return { infrastructureError: 'Overlay validation omitted diagnostics for ' + uri + '.' };
     const diagnostics: DiagnosticSnapshotEntry[] = [];
     for (const raw of entry.diagnostics as unknown[]) {
@@ -602,12 +606,42 @@ export async function typedPdxWriteWithHost(
 
 export const CANDIDATE_TRANSACTION_FIELDS = ['action', 'transactionId', 'validationPassed'] as const;
 
+export interface TextCandidateStage {
+  transactionId: string;
+  path: string;
+  content: string;
+  contentHash: string;
+  baseHash?: string;
+  bytes: number;
+}
+
+/** Internal editor staging over the same bounded candidate transaction and commit locks. */
+export function stageTextCandidateWithHost(
+  host: HostServices, filePath: string, content: string, baseHash: string | undefined,
+  authorizationTool: 'candidate_transaction' | 'gui_draft' | 'ship_design_draft' | 'static_galaxy_draft' = 'candidate_transaction',
+): TextCandidateStage {
+  const denied = ensureToolWriteAllowed(host, authorizationTool);
+  if (denied) throw new Error(denied.error?.message ?? 'Editor candidate writes are not allowed.');
+  const transaction = transactionFor(host);
+  const entry = transaction.stage(filePath, content, baseHash);
+  if (transaction.id === undefined) throw new Error('No active editor candidate transaction.');
+  return { transactionId: transaction.id, ...entry };
+}
+
+export function textCandidateWithHost(host: HostServices, filePath: string): TextCandidateStage | undefined {
+  const transaction = transactionFor(host);
+  const entry = transaction.files.find(file => file.path === filePath);
+  if (entry === undefined || transaction.id === undefined) return undefined;
+  return { transactionId: transaction.id, ...entry };
+}
+
 export async function candidateTransactionWithHost(
   host: HostServices,
   args: Record<string, unknown>,
   context?: DomainWriteContext,
+  authorizationTool: 'candidate_transaction' | 'gui_draft' | 'ship_design_draft' | 'static_galaxy_draft' = 'candidate_transaction',
 ): Promise<SharedToolResult<CandidateTransactionResult>> {
-  const denied = ensureToolWriteAllowed(host, 'candidate_transaction');
+  const denied = ensureToolWriteAllowed(host, authorizationTool);
   if (denied) return denied as SharedToolResult<CandidateTransactionResult>;
   throwIfAborted(context?.signal);
   const extra = Object.keys(args).filter(key => !(CANDIDATE_TRANSACTION_FIELDS as readonly string[]).includes(key));

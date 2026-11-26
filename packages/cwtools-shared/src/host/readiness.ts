@@ -25,12 +25,16 @@ export const LOAD_DEPENDENT_TOOLS: ReadonlySet<string> = new Set([
   'explore_pdx_project',
   'find_references',
   'get_diagnostics',
+  'gui_draft',
+  'ship_design_draft',
+  'static_galaxy_draft',
   'query_scripted_effects',
   'query_scripted_triggers',
   'query_enums',
   'query_static_modifiers',
   'query_variables',
   'get_entity_info',
+  'get_semantic_catalog',
 ]);
 
 export const READINESS_LOADING_WARNING =

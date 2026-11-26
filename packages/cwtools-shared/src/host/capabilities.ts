@@ -92,6 +92,7 @@ export const REQUIRED_BACKEND_COMMANDS: readonly string[] = [
   'cwtools.ai.queryDefinition',
   'cwtools.ai.queryDefinitionByName',
   'cwtools.ai.getEntityInfo',
+  'cwtools.ai.getSemanticCatalog',
   // Semantic model and project graph.
   'cwtools.ai.queryTypes',
   'cwtools.ai.exploreProject',

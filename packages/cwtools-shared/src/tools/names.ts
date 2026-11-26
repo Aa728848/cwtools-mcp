@@ -36,6 +36,7 @@ export const MCP_READONLY_TOOL_NAMES = [
   'query_enums',
   'query_static_modifiers',
   'query_variables',
+  'get_semantic_catalog',
   'get_entity_info',
   'find_sprite_candidates',
   'find_sound_candidates',
@@ -52,6 +53,9 @@ export const MCP_READONLY_TOOL_NAMES = [
 ] as const;
 
 export const MCP_WRITE_TOOL_NAMES = [
+  'gui_draft',
+  'ship_design_draft',
+  'static_galaxy_draft',
   'write_localisation',
   'typed_pdx_write',
   'candidate_transaction',

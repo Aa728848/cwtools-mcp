@@ -49,6 +49,9 @@ describe('deep semantic tools routing contract', () => {
     ['query_enums', { enumName: 'anomaly_category' }, 'cwtools.ai.queryEnums', ['anomaly_category', 500]],
     ['query_static_modifiers', { filter: 'planet_' }, 'cwtools.ai.queryStaticModifiers', ['planet_', 300]],
     ['query_variables', { filter: '@base' }, 'cwtools.ai.queryVariables', ['@base']],
+    ['get_semantic_catalog', {}, 'cwtools.ai.getSemanticCatalog', []],
+    ['get_semantic_catalog', { names: ['country_event'] }, 'cwtools.ai.getSemanticCatalog', [['country_event'], [], [], true]],
+    ['get_semantic_catalog', { names: ['country_event'], definitionNames: ['event'], includeDirectoryPaths: false }, 'cwtools.ai.getSemanticCatalog', [['country_event'], [], ['event'], false]],
     ['parse_pdx_fragment', { code: 'every_owned_ship = { limit = { always = yes } }' }, 'cwtools.ai.parseFragment', ['every_owned_ship = { limit = { always = yes } }']],
   ];
 
@@ -61,6 +64,14 @@ describe('deep semantic tools routing contract', () => {
       expect(hit!.args).to.deep.equal(expectedArgs);
     });
   }
+
+  it('does not wrap a null semantic-catalog response as a successful result', async () => {
+    const host = recordingHost([]);
+    host.lsp.executeCommand = async () => null as never;
+    const result = await defaultSharedToolDispatcher(host, 'get_semantic_catalog', {});
+    expect(result.ok).to.equal(false);
+    expect(result.status).to.equal('unavailable');
+  });
 
   it('get_entity_info routes to cwtools.ai.getEntityInfo with a file URI', async () => {
     const calls: Array<{ command: string; args: unknown[] }> = [];

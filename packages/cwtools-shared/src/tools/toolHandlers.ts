@@ -16,6 +16,8 @@ import { findAssetCandidatesWithHost, findScopeBridgeWithHost, getIgnoredDiagnos
 import { writeLocalisationWithHost } from '../safety/localisation';
 import { getPdxBlockWithHost } from './pdxBlock';
 import { candidateTransactionWithHost, typedPdxWriteWithHost } from './pdxWrites';
+import { guiDraftWithHost } from './guiDraft';
+import { shipDesignDraftWithHost, staticGalaxyDraftWithHost } from './shipGalaxyDraft';
 import { convertAudioWithHost, convertImageToDdsWithHost, deployModAssetWithHost } from './mediaWrites';
 import { executeTargetingWeightQuery } from './targetingWeights';
 import { toolUnavailable, type SharedToolResult } from './schema';
@@ -77,7 +79,7 @@ async function executeLspTool(
   const result = await host.lsp.executeCommand(command, args, signal ? { signal } : undefined);
   const record = asRecord(result);
   const errorRecord = asRecord(record.error);
-  const unavailable = record.status === 'unavailable' || errorRecord.code === 'lsp_unavailable';
+  const unavailable = result === null || result === undefined || record.status === 'unavailable' || errorRecord.code === 'lsp_unavailable';
   // A command that answered `ok: false` (unknown symbol, unsupported argument) is a
   // failure, not an empty success: wrapping it in `ok: true` made callers report
   // "found nothing" for "could not look".
@@ -485,6 +487,18 @@ export const defaultSharedToolDispatcher: SharedToolDispatcher = async (host, na
         'Start the CWTools LSP process or connect this host to an existing language server.',
       );
 
+    case 'get_semantic_catalog': {
+      const names=Array.isArray(args.names)?args.names.filter((name): name is string=>typeof name==='string').slice(0,4000):[]
+      const definitionNames=Array.isArray(args.definitionNames)?args.definitionNames.filter((name): name is string=>typeof name==='string').slice(0,4000):[]
+      const includeDirectoryPaths=typeof args.includeDirectoryPaths==='boolean'?args.includeDirectoryPaths:true
+      const commandArgs=names.length===0&&definitionNames.length===0&&includeDirectoryPaths?[]:[names,[],definitionNames,includeDirectoryPaths]
+      return lspTool(
+        'cwtools.ai.getSemanticCatalog',
+        commandArgs,
+        'Start the CWTools LSP process or connect this host to an existing language server.',
+      );
+    }
+
     case 'get_entity_info':
       return lspTool(
         'cwtools.ai.getEntityInfo',
@@ -582,6 +596,12 @@ export const defaultSharedToolDispatcher: SharedToolDispatcher = async (host, na
 
     case 'typed_pdx_write':
       return typedPdxWriteWithHost(host, args, context);
+    case 'gui_draft':
+      return await guiDraftWithHost(host, args, { signal: context?.signal });
+    case 'ship_design_draft':
+      return await shipDesignDraftWithHost(host, args, { signal: context?.signal });
+    case 'static_galaxy_draft':
+      return await staticGalaxyDraftWithHost(host, args, { signal: context?.signal });
     case 'candidate_transaction':
       return candidateTransactionWithHost(host, args, context);
     case 'convert_image_to_dds':

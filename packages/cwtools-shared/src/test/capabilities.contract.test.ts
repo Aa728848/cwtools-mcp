@@ -64,7 +64,7 @@ describe('required backend command contract', () => {
       diagnostics: ['cwtools.ai.getValidationStatus', 'cwtools.ai.getDiagnosticsFresh', 'cwtools.ai.getAllDiagnostics'],
       revalidation: ['cwtools.ai.revalidateFiles'],
       navigation: ['cwtools.ai.getCompletionContext', 'cwtools.ai.getScopeAtPosition', 'cwtools.ai.queryDefinition', 'cwtools.ai.queryDefinitionByName'],
-      semantic: ['cwtools.ai.queryTypes', 'cwtools.ai.getEntityInfo'],
+      semantic: ['cwtools.ai.queryTypes', 'cwtools.ai.getEntityInfo', 'cwtools.ai.getSemanticCatalog'],
       graph: ['cwtools.ai.exploreProject', 'cwtools.ai.exploreInlineGraph', 'cwtools.ai.analyzePdxFlow'],
       localisation: ['cwtools.ai.queryLocalisationAudit'],
       scripted: ['cwtools.ai.queryScriptedEffects', 'cwtools.ai.queryScriptedTriggers', 'cwtools.ai.queryEnums', 'cwtools.ai.queryStaticModifiers', 'cwtools.ai.queryVariables'],
