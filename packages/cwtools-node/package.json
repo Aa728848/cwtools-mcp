@@ -1,6 +1,6 @@
 {
   "name": "cwtools-node",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Transport-agnostic CWTools Node host services (filesystem, LSP process, revalidation, project detection)",
   "license": "MIT",
   "repository": {
