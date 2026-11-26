@@ -82,6 +82,12 @@ native manifest, live process, exact workspace and `/cwtools/healthz`, then call
 the separate bearer-authenticated `/cwtools/rpc` API. Unavailable hosts allow standalone
 fallback; incompatible active hosts return `backend_incompatible` without a second process.
 
+Browser or UI code that only needs the tool catalog imports `cwtools-shared/catalog`
+instead of the package root. That entry carries the generated catalog, registry metadata
+and read/write name tables with no Node builtin or Host module in its runtime import
+graph; a contract test enforces this. The package root still re-exports everything, and
+other `dist/*` paths are not exported.
+
 ### Publishing
 
 All three packages are published to npm (`cwtools-shared` first, then
@@ -160,6 +166,10 @@ npm run bundle           # esbuild 产出单文件 dist/cwtools-mcp.cjs
 原生清单、活进程、精确工作区与 `/cwtools/healthz`，随后只调用独立的 bearer 认证
 `/cwtools/rpc` API。不可用宿主允许独立回退；活跃宿主不兼容则返回
 `backend_incompatible`，不会创建第二个进程。
+
+只需要工具目录的浏览器或 UI 代码从 `cwtools-shared/catalog` 导入，而不是包根。该入口包含生成目录、
+registry 元数据和读写名表，运行时导入图中没有任何 Node 内置模块或 Host 模块，由契约测试保证。包根仍导出
+全部内容，其他 `dist/*` 路径不再对外导出。
 
 ### 发布
 
