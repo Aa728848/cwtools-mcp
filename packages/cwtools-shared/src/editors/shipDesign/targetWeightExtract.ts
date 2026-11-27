@@ -44,6 +44,8 @@ export interface ExtractedWeaponTargeting {
     sizeDamageFactor?: number;
     /** use_ship_main_target：缺省即 false（武器层分数自选目标）。 */
     useShipMainTarget?: boolean;
+    /** target_focus：武器层索敌焦点（single / spread），仅 spread 或困惑触发 Mrec(0.3)。 */
+    targetFocus?: 'single' | 'spread';
     /** target_weights 表：键为 ship_size id，值为加法项 wk。 */
     targetWeights: Record<string, number>;
     /** targetable_ship_sizes 表：候选过滤。 */
@@ -122,6 +124,7 @@ const COMPONENT_ID_KEY = 'key';
 const TARGET_WEIGHTS_KEY = 'target_weights';
 const TARGETABLE_SIZES_KEY = 'targetable_ship_sizes';
 const USE_SHIP_MAIN_TARGET_KEY = 'use_ship_main_target';
+const TARGET_FOCUS_KEY = 'target_focus';
 const COMPONENT_TYPE_KEY = 'type';
 
 function isAtom(token: Token | undefined): boolean {
@@ -148,6 +151,13 @@ export function parsePdxBool(raw: string): boolean | undefined {
     const value = raw.trim().toLowerCase();
     if (value === 'yes' || value === 'true') return true;
     if (value === 'no' || value === 'false') return false;
+    return undefined;
+}
+
+export function parseTargetFocus(raw: string): 'single' | 'spread' | undefined {
+    const value = unquote(raw).toLowerCase();
+    if (value === 'single') return 'single';
+    if (value === 'spread') return 'spread';
     return undefined;
 }
 
@@ -295,6 +305,10 @@ function readComponentBlock(
                     const flag = parsePdxBool(rhs.value);
                     if (flag === undefined) fields.dynamicKeys.push(key);
                     else fields.useShipMainTarget = flag;
+                } else if (key === TARGET_FOCUS_KEY) {
+                    const focus = parseTargetFocus(rhs.value);
+                    if (focus === undefined) fields.dynamicKeys.push(key);
+                    else fields.targetFocus = focus;
                 } else if (NUMERIC_KEY_SET.has(key)) {
                     setNumeric(fields, key as TargetingNumericField, rhs.value);
                 }
@@ -314,6 +328,7 @@ export function countTargetingFields(fields: ExtractedWeaponTargeting): number {
         if (hasNumericField(fields, key)) count++;
     }
     if (fields.useShipMainTarget !== undefined) count++;
+    if (fields.targetFocus !== undefined) count++;
     if (Object.keys(fields.targetWeights).length > 0) count++;
     return count;
 }
@@ -473,8 +488,8 @@ export interface InlineScriptTemplate {
     nested: InlineScriptCall[];
 }
 
-/** inline 绑定里允许出现的非数值字段（id 与组件 type）。 */
-const INLINE_TEXT_FIELDS: ReadonlySet<string> = new Set([COMPONENT_ID_KEY, COMPONENT_TYPE_KEY]);
+/** inline 绑定里允许出现的非数值字段（id、组件 type、target_focus）。 */
+const INLINE_TEXT_FIELDS: ReadonlySet<string> = new Set([COMPONENT_ID_KEY, COMPONENT_TYPE_KEY, TARGET_FOCUS_KEY]);
 
 /** script 引用/文件相对路径 → 注册表键：正斜杠、去扩展名、小写。 */
 export function normalizeInlineScriptKey(scriptOrRelativePath: string): string {
@@ -784,6 +799,15 @@ export function expandInlineScriptFields(
         if (!fields.componentType) {
             const type = resolveInlineText(template.bindings.get(COMPONENT_TYPE_KEY), call.params);
             if (type) fields.componentType = type;
+        }
+        if (fields.targetFocus === undefined) {
+            const rawFocus = template.bindings.get(TARGET_FOCUS_KEY);
+            if (rawFocus !== undefined) {
+                const resolvedFocus = resolveInlineText(rawFocus, call.params);
+                const focus = resolvedFocus ? parseTargetFocus(resolvedFocus) : undefined;
+                if (focus) fields.targetFocus = focus;
+                else if (!fields.dynamicKeys.includes(TARGET_FOCUS_KEY)) fields.dynamicKeys.push(TARGET_FOCUS_KEY);
+            }
         }
         for (const field of TARGETING_NUMERIC_FIELDS) {
             if (hasNumericField(fields, field)) continue;
