@@ -1,7 +1,7 @@
 /**
- * Stellaris 4.5.2 战斗索敌权重计算（纯计算，无副作用）。
+ * Stellaris 4.6.0 战斗索敌权重计算（纯计算，无副作用）。
  *
- * 实现 docs/stellaris-targeting-weight-4.5.2.md §2（舰船层乘法链 W1..W6 与整目标否决）
+ * 实现 docs/better_stellaris/17_ship_targeting_weights.md §2（舰船层乘法链 W1..W6 与整目标否决）
  * 与 §3（武器层 p / ΣD 三层分摊 / S0..S + wk 加法项）的**归一化形式**：把引擎内部的
  * 定点数 F = 100000 当作实数 1.0，除法按 C 风格向零截断的误差忽略不计。
  *
@@ -9,7 +9,7 @@
  * CWeaponComponentTargeting::CalcBestTarget）；武器模板写 use_ship_main_target = yes 时
  * 武器直接沿用舰船主目标，武器层分数不参与（误区 8）。
  *
- * 本模块刻意不 import vscode / fs / path，供后续 webview 面板（P3-1）直接复用。
+ * 本模块刻意不 import vscode / fs / path，供 webview 面板与 MCP 工具直接复用。
  */
 
 /** 索敌相关 define 的语义化视图，字段名对应 vanilla 00_defines.txt 里的 define。 */
@@ -46,7 +46,7 @@ export interface TargetingDefines {
     recentTargetPenalizer: number;
 }
 
-/** vanilla 取值（Stellaris 4.5.2 common/defines/00_defines.txt, NCombat / NShip）。 */
+/** vanilla 取值（Stellaris 4.6.0 common/defines/00_defines.txt, NCombat / NShip）。 */
 export const VANILLA_TARGETING_DEFINES: TargetingDefines = {
     sizeSlope: 0.03,
     sizeMax: 10,
@@ -116,7 +116,7 @@ export interface TargetingTargetInput {
     armed: boolean;
     isStarbase?: boolean;
     isCurrentMainTarget?: boolean;
-    /** 在"最近目标记忆"中且非最新一项。 */
+    /** 在"最近目标记忆"（NUMBER_OF_TARGETS_TO_REMEMBER = 10）中；4.6 源码证实仅 target_focus = spread (1) 或 IsConfused 时对全部记住项生效（保留字段名以兼容既有调用方）。 */
     isRecentNonLatest?: boolean;
 }
 
@@ -273,7 +273,9 @@ export function computeTargetingChain(input: TargetingChainInput): TargetingChai
     const healthRatio = hasHealthRatio ? clamp(target.hull / (maxHull as number), 0, 1) : null;
     const lowHealthFactor = healthRatio !== null && healthRatio < defs.lowHealthThreshold ? defs.lowHealthWeight : 1;
     const unarmedFactor = target.armed ? 1 : defs.unarmedWeight;
-    const starbaseFactor = target.isStarbase === true && target.isCurrentMainTarget !== true
+    // 4.6 CShipTargeting::ComputePotentialTargetScore (L1723534-1723561):
+    // 无武装降权与星基降权是 if / else if 互斥分支，无武装星基只吃 unarmedWeight。
+    const starbaseFactor = target.armed && target.isStarbase === true && target.isCurrentMainTarget !== true
         ? defs.starbaseWeight
         : 1;
     const randomRoll = clamp(input.randomRoll ?? 0, 0, 1);
@@ -349,7 +351,12 @@ export function computeTargetingChain(input: TargetingChainInput): TargetingChai
     const currentTargetMultiplier = target.isCurrentMainTarget === true && input.targetFocus !== true
         ? defs.currentTargetMultiplier
         : 1;
-    const recentTargetPenalizer = target.isRecentNonLatest === true ? defs.recentTargetPenalizer : 1;
+    // 4.6 CShipTargeting::CalcBestTarget (L1723030) 与 CWeaponComponentTargeting::CalcBestWeaponComponentTarget (L1724315):
+    // SHIP_RECENT_TARGET_PENALIZER 仅在 targetFocus = 1 (target_focus = spread 或 IsConfused) 时施加，
+    // 且对记忆数组内全部记住目标生效。
+    const recentTargetPenalizer = input.targetFocus === true && target.isRecentNonLatest === true
+        ? defs.recentTargetPenalizer
+        : 1;
 
     const weaponLayer: TargetingWeaponLayer = {
         p,
@@ -381,7 +388,7 @@ function buildNotes(
 ): string[] {
     const notes: string[] = [];
     notes.push('两层互不相乘：舰船层与武器层各自 argmax；武器模板写 use_ship_main_target = yes 时武器直接沿用舰船主目标，武器层分数不参与（误区 8）。');
-    notes.push('索敌不是每 tick 重算：已有有效主目标时只在 (TotalTicks + shipID) mod fp == 0 的 tick 重算，fp = 50（targetFocus = 1）或 10。');
+    notes.push('索敌不是每 tick 重算：已有有效主目标时只在 (TotalTicks + shipID) mod fp == 0 的 tick 重算，fp = 50（target_focus = spread / IsConfused，引擎 targetFocus = 1）或 10（single，targetFocus = 0）。');
 
     if (shipChain.veto) {
         notes.push('触发整目标否决：直接 return 0，该候选从候选集中剔除，不参与 argmax（误区 6）。判据为 Δ>0 且 σatt ≥ σavoidmin 且 Δ ≥ Tavoid 且目标舰队存在可命中目标。');

@@ -7,7 +7,7 @@ import {
 } from '../tools/targetingWeights';
 
 /**
- * 复算 docs/stellaris-targeting-weight-4.5.2.md §6 算例：
+ * 复算 docs/better_stellaris/17_ship_targeting_weights.md §6 算例：
  * 一门 ENERGY_LANCE（600-1500，mh = 1.5 / ms = 0.5 / ma = 2.0，acc = 0.85，trk = 0）
  * 对两条船：护卫舰 σ=5 / ε=0.6 / 船体盾甲 240-225-225 / d=72 / wtgt=1.561，
  * 雷击舰 σ=8 / ε=0.424 / 720-0-0 / d=64.5 / wtgt=1.379。
@@ -227,7 +227,7 @@ describe('Stellaris targeting weight chain', () => {
         expect(missed.weapon.score).to.be.closeTo(plain.weapon.score, 1e-9);
     });
 
-    it('applies the current-target stickiness and recent-target penalizer', () => {
+    it('applies the current-target stickiness (single) and recent-target penalizer (spread)', () => {
         const base = computeTargetingChain(chain({
             target: {
                 sizeMultiplier: 5, evasion: 0.6, distance: 72,
@@ -241,14 +241,14 @@ describe('Stellaris targeting weight chain', () => {
                 isCurrentMainTarget: true,
             },
         }));
-        const penalized = computeTargetingChain(chain({
+        const recentUnderSingle = computeTargetingChain(chain({
             target: {
                 sizeMultiplier: 5, evasion: 0.6, distance: 72,
                 hull: 240, shield: 225, armor: 225, armed: true,
                 isRecentNonLatest: true,
             },
         }));
-        const spread = computeTargetingChain(chain({
+        const spreadCurrent = computeTargetingChain(chain({
             target: {
                 sizeMultiplier: 5, evasion: 0.6, distance: 72,
                 hull: 240, shield: 225, armor: 225, armed: true,
@@ -256,14 +256,28 @@ describe('Stellaris targeting weight chain', () => {
             },
             targetFocus: true,
         }));
+        const spreadRecent = computeTargetingChain(chain({
+            target: {
+                sizeMultiplier: 5, evasion: 0.6, distance: 72,
+                hull: 240, shield: 225, armor: 225, armed: true,
+                isCurrentMainTarget: true,
+                isRecentNonLatest: true,
+            },
+            targetFocus: true,
+        }));
         expect(base.weapon.currentTargetMultiplier).to.equal(1);
         expect(sticky.weapon.currentTargetMultiplier).to.equal(1.1);
         expect(sticky.weapon.final).to.be.closeTo(sticky.weapon.score * 1.1, 1e-9);
-        expect(penalized.weapon.recentTargetPenalizer).to.equal(0.3);
-        expect(penalized.weapon.final).to.be.closeTo(penalized.weapon.score * 0.3, 1e-9);
-        // targetFocus = 1（spread）时 Mcur 不施加。
-        expect(spread.weapon.currentTargetMultiplier).to.equal(1);
-        expect(spread.weapon.final).to.be.closeTo(spread.weapon.score, 1e-9);
+        // Stellaris 4.6.0 实证：targetFocus = 0 (single) 时不施加 Mrec。
+        expect(recentUnderSingle.weapon.recentTargetPenalizer).to.equal(1);
+        expect(recentUnderSingle.weapon.final).to.be.closeTo(recentUnderSingle.weapon.score, 1e-9);
+        // targetFocus = 1 (spread) 时不施加 Mcur，仅在命中最近目标记忆时施加 Mrec。
+        expect(spreadCurrent.weapon.currentTargetMultiplier).to.equal(1);
+        expect(spreadCurrent.weapon.recentTargetPenalizer).to.equal(1);
+        expect(spreadCurrent.weapon.final).to.be.closeTo(spreadCurrent.weapon.score, 1e-9);
+        expect(spreadRecent.weapon.currentTargetMultiplier).to.equal(1);
+        expect(spreadRecent.weapon.recentTargetPenalizer).to.equal(0.3);
+        expect(spreadRecent.weapon.final).to.be.closeTo(spreadRecent.weapon.score * 0.3, 1e-9);
     });
 
     it('covers define overrides, low-health, starbase, size scaling and the random factor', () => {
@@ -305,6 +319,15 @@ describe('Stellaris targeting weight chain', () => {
             },
         }));
         expect(starbaseCurrent.shipChain.starbaseFactor).to.equal(1);
+        // Stellaris 4.6.0 实证：无武装降权与星基降权为 if / else if 互斥，无武装星基只乘 0.005。
+        const unarmedStarbase = computeTargetingChain(chain({
+            target: {
+                sizeMultiplier: 5, evasion: 0.6, distance: 72,
+                hull: 240, shield: 0, armor: 0, armed: false, isStarbase: true,
+            },
+        }));
+        expect(unarmedStarbase.shipChain.unarmedFactor).to.equal(VANILLA_TARGETING_DEFINES.unarmedWeight);
+        expect(unarmedStarbase.shipChain.starbaseFactor).to.equal(1);
 
         const scaled = computeTargetingChain(chain({
             weapon: { ...ENERGY_LANCE, sizeDamageFactor: 0.05 },
