@@ -85,6 +85,31 @@ describe('initialize_project shared host contract', () => {
     expect(fs.readFileSync(path.join(root, 'CWTOOLS.md'), 'utf8')).to.include('User-owned');
   });
 
+  it('reuses existing artifacts without rewriting them when knowledge is unchanged', async () => {
+    const profilePath = path.join(root, '.cwtools/project/profile.json');
+    const knowledgeRoot = path.join(root, '.cwtools/project/knowledge');
+    const manifestPath = path.join(knowledgeRoot, 'manifest.json');
+    const databasePath = path.join(knowledgeRoot, 'knowledge.sqlite');
+    fs.mkdirSync(knowledgeRoot, { recursive: true });
+    const manifestText = '{"status":"ready","sentinel":true}\n';
+    fs.writeFileSync(profilePath, 'profile-sentinel\n', 'utf8');
+    fs.writeFileSync(manifestPath, manifestText, 'utf8');
+    fs.writeFileSync(databasePath, 'sqlite-sentinel', 'utf8');
+    const lsp: LspHost = {
+      async executeCommand(command) {
+        if (command === 'cwtools.ai.getValidationStatus') return { modelReadyForKnowledgeExport: true, loading: { phase: 'ready' } };
+        expect(command).to.equal('cwtools.ai.exportProjectKnowledge');
+        return { ok: true, status: 'ready', schemaVersion: 7, generationMode: 'unchanged', generatedAtUnixMs: 1 };
+      },
+      async sendRequest() { throw new Error('unexpected request'); },
+    };
+    const result = await initializeProjectWithHost(hostWith(lsp), { mode: 'incremental', changedFiles: ['common/fixture.txt'] });
+    expect(result.ok).to.equal(true);
+    expect(fs.readFileSync(profilePath, 'utf8')).to.equal('profile-sentinel\n');
+    expect(fs.readFileSync(manifestPath, 'utf8')).to.equal(manifestText);
+    expect(fs.readFileSync(databasePath, 'utf8')).to.equal('sqlite-sentinel');
+  });
+
   it('shares concurrent initialization and preserves existing instructions on export failure', async () => {
     fs.writeFileSync(path.join(root, 'CWTOOLS.md'), '# user-owned\n', 'utf8');
     let resolveExport: ((value: unknown) => void) | undefined;

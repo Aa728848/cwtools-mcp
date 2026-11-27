@@ -26,7 +26,7 @@ interface KnowledgeSnapshot {
   graphVersion?: number;
   completeExport?: boolean;
   projectRoots?: string[];
-  generationMode?: 'full' | 'incremental';
+  generationMode?: 'full' | 'incremental' | 'unchanged';
   counts?: Record<string, number>;
   domains?: Array<Record<string, unknown>>;
   definitionStacks?: Array<Record<string, unknown>>;
@@ -265,7 +265,7 @@ async function performInitialization(host: HostServices, rawArgs: InitializeProj
       evidence: ['The active host explicitly selected this game.'],
     };
   }
-  const profilePath = writeProjectProfile(host.workspaceRoot, profile);
+  const profilePath = getProjectProfilePath(host.workspaceRoot);
   const instructionsPath = path.join(host.workspaceRoot, 'CWTOOLS.md');
   const instructionsCreated = !fs.existsSync(instructionsPath);
   if (instructionsCreated) fs.writeFileSync(instructionsPath, instructionsTemplate(), 'utf8');
@@ -276,6 +276,16 @@ async function performInitialization(host: HostServices, rawArgs: InitializeProj
       throw new Error('Obsolete project knowledge schema V' + Number(snapshot.schemaVersion || 0) + '; expected V' + CURRENT_KNOWLEDGE_SCHEMA_VERSION + '.');
     }
     if (!fs.existsSync(paths.databasePath)) throw new Error('CWTools reported success but knowledge.sqlite was not created.');
+    if (snapshot.generationMode === 'unchanged' && fs.existsSync(profilePath) && fs.existsSync(paths.manifestPath)) {
+      const manifest = JSON.parse(fs.readFileSync(paths.manifestPath, 'utf8')) as ReturnType<typeof baseManifest>;
+      return {
+        ok: true,
+        status: snapshot.status === 'partial' ? 'partial' : 'ready',
+        source: 'cwtools-project-init',
+        data: { profilePath, instructionsPath, instructionsCreated, databasePath: paths.databasePath, manifestPath: paths.manifestPath, manifest },
+        warnings: snapshot.warnings,
+      };
+    }
     mergeDeepCompatibilityEvidence(profile, snapshot);
     const manifest = baseManifest(host, profile, snapshot);
     manifest.artifacts = ['knowledge.sqlite'];
@@ -299,6 +309,7 @@ async function performInitialization(host: HostServices, rawArgs: InitializeProj
   } catch (error) {
     throwIfAborted(signal);
     const message = error instanceof Error ? error.message : String(error);
+    writeProjectProfile(host.workspaceRoot, profile);
     const manifest = baseManifest(host, profile);
     manifest.status = 'unavailable';
     manifest.warnings = [message];
